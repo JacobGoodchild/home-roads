@@ -20,6 +20,10 @@ const files = [
   "examples/jsm/shaders/OutputShader.js",
   "examples/jsm/environments/RoomEnvironment.js",
   "examples/jsm/utils/BufferGeometryUtils.js",
+  "examples/jsm/postprocessing/GTAOPass.js",
+  "examples/jsm/shaders/GTAOShader.js",
+  "examples/jsm/shaders/PoissonDenoiseShader.js",
+  "examples/jsm/math/SimplexNoise.js",
   "LICENSE",
 ];
 rmSync(out, { recursive: true, force: true });

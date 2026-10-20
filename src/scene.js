@@ -3,12 +3,16 @@
 // The sky shader and quality presets come from Apex Ring's scene.js.
 import * as THREE from "three";
 import { TEST, FORCE_QUALITY } from "./env.js";
+import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
+import { GTAOPass } from "three/addons/postprocessing/GTAOPass.js";
+import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 
 // high = the screen's full sharpness (default everywhere); adaptive resolution only steps down a little if frames get slow
 export const QUALITY = {
   low: { pr: 1, shadows: false, shadowSize: 1024, radius: 2, aa: false, floor: 0.6 },
   medium: { pr: 1.75, shadows: true, shadowSize: 1024, radius: 3, aa: true, floor: 0.7 },
-  high: { pr: 3, shadows: true, shadowSize: 2048, radius: 3, aa: true, floor: 0.8 },
+  high: { pr: 3, shadows: true, shadowSize: 4096, radius: 3, aa: true, floor: 0.7, ao: true },
 };
 export function autoQuality() {
   if (FORCE_QUALITY && QUALITY[FORCE_QUALITY]) return FORCE_QUALITY;
@@ -103,6 +107,18 @@ export class Stage {
     const w = innerWidth, h = innerHeight;
     this.renderer.setPixelRatio(this.maxPR * this.prScale);
     this.renderer.setSize(w, h); this.camera.aspect = w / h; this.camera.updateProjectionMatrix();
+    if (this.q.ao && (!TEST || FORCE_QUALITY === "high") && !this.composer) {
+      // ambient occlusion: soft shading in corners, under eaves and where things meet the ground (desktop quality)
+      const rt = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4 });
+      this.composer = new EffectComposer(this.renderer, rt);
+      this.composer.addPass(new RenderPass(this.scene, this.camera));
+      this.ao = new GTAOPass(this.scene, this.camera, w, h);
+      this.ao.updateGtaoMaterial({ radius: 1.6, distanceExponent: 1.4, thickness: 2, scale: 1.2, samples: 12 });
+      this.ao.blendIntensity = 0.9;
+      this.composer.addPass(this.ao);
+      this.composer.addPass(new OutputPass());
+    }
+    if (this.composer) { this.composer.setPixelRatio(this.maxPR * this.prScale); this.composer.setSize(w, h); }
   }
 
   adapt(frameMs) {
@@ -159,5 +175,5 @@ export class Stage {
     this.sky.position.set(x, 0, z);
   }
 
-  render() { this.renderer.render(this.scene, this.camera); }
+  render() { if (this.composer) this.composer.render(); else this.renderer.render(this.scene, this.camera); }
 }
