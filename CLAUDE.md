@@ -123,3 +123,28 @@ in plain English: what's done, what isn't and why, the link to the live game, an
   (flat / gable / hip with the scanned pitch, ridge direction and ridge height) for ~1,600 buildings; the rest keep the
   smoothed scanned roof grid. Chimneys from LIDAR spikes (1,363 buildings) with pots. Clay tile / slate textures.
   Trees: leafy leaf-card crowns at their LIDAR positions/heights/widths.
+- 12:05 Parked cars (generic hatch/estate/SUV/saloon shapes from Apex Ring's body generator, solid), black lamp posts,
+  paved forecourts in front of buildings near the road, front garden brick walls with black railings, ambient
+  occlusion + 4K shadows on the best setting, real weather by default (one request to open-meteo.com while loading,
+  never while driving; falls back to dry). Leafy crowns only in the chunk you're in (woods near the B3400 were millions
+  of triangles), lighter crowns further out.
+
+### What is real data and what is a styled default
+Real (from data):
+- Road layout, junctions, names, classes, bridges, one-way, sidewalk tags, widths where tagged (OSM).
+- Ground shape everywhere (EA LIDAR DTM 1 m, used at 2 m near the car).
+- Building footprints (OSM); building heights, roof pitch/direction/ridge height (fitted to the EA LIDAR surface),
+  roof shape of complex buildings (the scan itself), chimney positions and heights (LIDAR spikes).
+- Shop / pub / cafe names on fascias (OSM), building type (OSM: church, garage, industrial...), materials if tagged.
+- Every tree and bush: position, height and crown width from the LIDAR canopy (local peaks of surface minus ground).
+- River Test, streams, lakes, railway, land use (fields, woods, parks, gardens) (OSM); water/rail heights from LIDAR.
+- Street objects only where OSM maps them: post boxes, phone boxes, benches, bus stops, give-way/stop signs, traffic
+  signals, bollards, gates, power poles, pylons and power lines. (No street lamps are mapped in this area.)
+- Spawn outside Domino's (OSM node, 10 Winchester Street), sprint route along real roads, real sun position, real weather.
+Styled defaults (data has nothing):
+- Wall finish (white/cream render or red brick, by a fixed hash per building; flint only for churches), window/door
+  layout (sash windows per 2.7 m bay, one front door on the wall facing the nearest road), roof covering (clay tile or
+  slate), shopfront look, front garden walls with railings, paved forecourts.
+- Parked cars and lamp posts along town roads with pavements (placed deterministically, clear of junctions).
+- Tree species (all drawn as broadleaf, green), field crop patterns (drill rows/tramlines per field).
+- Sizes of mapped objects (standard UK sizes), road widths where OSM has no width tag (typical UK widths by class).
