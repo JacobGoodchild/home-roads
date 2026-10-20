@@ -359,7 +359,60 @@ for (pe, pn), name, kind in pois:
       k = int(np.bincount(nzv).argmax()) if len(nzv) else 0
     if k: bposi[k - 1] = (name, kind)
 bmask = ndimage.binary_dilation(B > 0, iterations=2)
-del B
+import base64
+def min_rect(xy):
+  """minimum-area rectangle axes (ux, uz) of a point set, rotating calipers over the convex hull"""
+  P = sorted(set(map(tuple, xy)))
+  if len(P) < 3: return 1.0, 0.0
+  def cross(o, a, b): return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+  lo, up = [], []
+  for p in P:
+    while len(lo) >= 2 and cross(lo[-2], lo[-1], p) <= 0: lo.pop()
+    lo.append(p)
+  for p in reversed(P):
+    while len(up) >= 2 and cross(up[-2], up[-1], p) <= 0: up.pop()
+    up.append(p)
+  hull = np.array(lo[:-1] + up[:-1]); best = None
+  for i in range(len(hull)):
+    d = hull[(i + 1) % len(hull)] - hull[i]; L = math.hypot(*d)
+    if L < 1e-6: continue
+    ux, uz = d / L
+    s_ = hull @ np.array([ux, uz]); t_ = hull @ np.array([-uz, ux])
+    a = (s_.max() - s_.min()) * (t_.max() - t_.min())
+    if best is None or a < best[0]: best = (a, ux, uz)
+  return best[1], best[2]
+DSM = ND + D  # first-return surface, absolute
+def roof_grid(k, ring, base):
+  """Real roof shape: the LIDAR surface over the footprint on a 1 m grid aligned with the building."""
+  xy = np.array([loc(*p) for p in ring])
+  ux, uz = min_rect(xy)
+  s_ = xy @ np.array([ux, uz]); t_ = xy @ np.array([-uz, ux])
+  area = (s_.max() - s_.min()) * (t_.max() - t_.min())
+  st = 1.0 if area < 6000 else 2.0
+  s0, t0 = math.floor(s_.min()) - 1, math.floor(t_.min()) - 1
+  ns, nt = int(math.ceil((s_.max() - s0) / st)) + 2, int(math.ceil((t_.max() - t0) / st)) + 2
+  S_, T_ = np.meshgrid(s0 + np.arange(ns) * st, t0 + np.arange(nt) * st)
+  X = S_ * ux - T_ * uz; Z = S_ * uz + T_ * ux
+  E = X + EC; N = NC - Z
+  c = E - E0 - 0.5; r = N1 - N - 0.5
+  ci = np.clip(np.round(c).astype(int), 0, W1 - 1); ri = np.clip(np.round(r).astype(int), 0, H1 - 1)
+  inside = B[ri, ci] == k + 1
+  if inside.sum() < 3: return None
+  c = np.clip(c, 0, W1 - 1.001); r = np.clip(r, 0, H1 - 1.001); c0 = np.floor(c).astype(int); r0 = np.floor(r).astype(int); fc = c - c0; fr = r - r0
+  v = DSM[r0, c0] * (1 - fc) * (1 - fr) + DSM[r0, c0 + 1] * fc * (1 - fr) + DSM[r0 + 1, c0] * (1 - fc) * fr + DSM[r0 + 1, c0 + 1] * fc * fr - base
+  # LIDAR edge pixels mix roof and ground: use the values a node in from the edge and extend them out to the walls
+  core = ndimage.binary_erosion(inside, iterations=1)
+  if core.sum() < 3: core = inside
+  v = np.where(core, v, np.nan)
+  vm = ndimage.median_filter(np.nan_to_num(v, nan=-1e3), size=3)
+  vm = np.where(core & (vm > -100), vm, np.where(core, v, np.nan))
+  idx = ndimage.distance_transform_edt(np.isnan(vm), return_distances=False, return_indices=True)
+  vm = vm[tuple(idx)]
+  cover = ndimage.binary_dilation(inside, iterations=1)
+  vm = np.clip(vm, 2.0, 50)
+  q = 0.1 if vm[cover].max() < 25 else 0.2
+  out = np.where(cover, np.clip(np.round(vm / q), 1, 255), 0).astype(np.uint8)
+  return {'f': [round(ux, 5), round(uz, 5), s0, t0, ns, nt, st, q], 'v': base64.b64encode(out.tobytes()).decode()}, float(np.percentile(vm[inside], 95)), float(np.percentile(vm[inside], 15))
 for k, (tags, ring, inner) in enumerate(blds):
   a, b = starts[k], starts[k + 1]
   v = val_s[a:b]
@@ -377,11 +430,18 @@ for k, (tags, ring, inner) in enumerate(blds):
   ce, cn = E.mean(), N.mean()
   base = float(dtm_at(E, N).min())
   rec = {'p': [v for p in ring[:-1] for v in loc(*p)], 'h': round(ridge, 1), 'e': round(eave, 1), 'y': round(base, 2), 't': bt}
+  if len(v) >= 4 and np.percentile(v, 90) > 2.0:
+    rg = roof_grid(k, ring, base)
+    if rg: rec['rf'] = rg[0]; rec['h'] = round(rg[1], 1); rec['e'] = round(rg[2], 1)
+  else: rec['nodata'] = 1
+  for tk in ('building:material', 'roof:material', 'roof:shape', 'building:colour', 'roof:colour', 'building:levels', 'name'):
+    if tags.get(tk): rec[tk.replace('building:', 'b_').replace('roof:', 'r_')] = tags[tk]
   if k in bposi: rec['shop'] = bposi[k][0]; rec['k'] = bposi[k][1]
   elif tags.get('shop') or tags.get('amenity'):
     if tags.get('name'): rec['shop'] = tags['name']; rec['k'] = tags.get('shop') or tags.get('amenity')
   if tags.get('amenity') == 'place_of_worship' or bt in ('church', 'chapel'): rec['t'] = 'church'
   C(chunk_of(ce, cn))['bld'].append(rec)
+del B, DSM
 log(len(blds), 'buildings')
 
 # ---------------------------------------------------------------- trees and bushes from the LIDAR canopy
@@ -397,8 +457,7 @@ ND2[cls_arr == CLS['water']] = np.minimum(ND2[cls_arr == CLS['water']], 0)
 mx3 = ndimage.maximum_filter(ND2, size=3)
 cnt = ndimage.uniform_filter((ND2 > 1.5).astype(np.float32), size=3) * 9
 rmd2 = ndimage.binary_dilation(rm, iterations=1)
-rmd2 = ndimage.binary_dilation(rm, iterations=1)
-peaks = (ND2 == mx3) & (ND2 >= 3.0) & (cnt >= 4) & (~rmd2) & (~rmd2)
+peaks = (ND2 == mx3) & (ND2 >= 3.0) & (cnt >= 4) & (~rmd2)
 jj, ii = np.nonzero(peaks)
 road_dist = ndimage.distance_transform_edt(~rm) * G   # metres to the nearest road
 log(len(jj), 'trees')
@@ -407,14 +466,14 @@ for j, i in zip(jj, ii):
   # crown radius from how far the canopy stays above half the height
   win = ND2[max(0, j - 3):j + 4, max(0, i - 3):i + 4]
   r = max(1.5, min(9, math.sqrt((win > h * 0.55).sum() * 4 / math.pi), road_dist[j, i] + 1.5))
-  x, z = loc(E + random.uniform(-0.7, 0.7), N + random.uniform(-0.7, 0.7))
+  x, z = loc(E, N)
   C(chunk_of(E, N))['trees'] += [x, z, round(h, 1), round(r, 1)]
 bushes = (ND2 == mx3) & (ND2 >= 1.0) & (ND2 < 3.0) & (cnt >= 3) & (~rm) & (cls_arr != CLS['paved'])
 jj, ii = np.nonzero(bushes)
 log(len(jj), 'bushes')
 for j, i in zip(jj, ii):
   h = float(ND2[j, i]); E = E0 + i * G; N = N1 - j * G
-  x, z = loc(E + random.uniform(-0.5, 0.5), N + random.uniform(-0.5, 0.5))
+  x, z = loc(E, N)
   C(chunk_of(E, N))['bush'] += [x, z, round(h, 1)]
 
 # ---------------------------------------------------------------- walls, fences, hedges, lamps
@@ -431,10 +490,39 @@ for w, (nds, t) in ways.items():
     else:
       rec['k'] = 'f' if bar == 'fence' else 'w'; rec['h'] = num(t.get('height', '') or '') or (1.2 if bar == 'fence' else 1.6)
       C(key)['walls'].append(rec)
+# street objects: only what OpenStreetMap maps, at the mapped position
+def obj_kind(t):
+  hw, am, pw, ba = t.get('highway'), t.get('amenity'), t.get('power'), t.get('barrier')
+  if hw == 'street_lamp': return 'lamp'
+  if hw in ('give_way', 'stop'): return hw
+  if hw == 'bus_stop': return 'bus_stop'
+  if hw == 'traffic_signals': return 'signals'
+  if hw == 'crossing': return 'crossing'
+  if am in ('bench', 'post_box', 'telephone', 'grit_bin', 'waste_basket', 'recycling', 'bicycle_parking'): return am
+  if t.get('man_made') == 'telephone_box': return 'telephone'
+  if pw in ('pole', 'tower'): return pw
+  if ba in ('gate', 'bollard', 'kissing_gate', 'stile', 'block', 'cycle_barrier', 'sliding_gate', 'lift_gate'): return 'gate' if 'gate' in ba else ba
+  if t.get('traffic_sign'): return 'sign'
+  return None
+nobj = 0
 for i, (lo, la, tags) in nodes.items():
-  if tags and tags.get('highway') == 'street_lamp':
-    E, N = NE[i]
-    if E0 < E < E1 and N0 < N < N1: C(chunk_of(E, N))['lamps'] += list(loc(E, N))
+  if not tags: continue
+  k = obj_kind(tags)
+  if not k: continue
+  E, N = NE[i]
+  if E0 < E < E1 and N0 < N < N1:
+    rec = [k, *loc(E, N)]
+    if tags.get('direction'): rec.append(tags['direction'])
+    C(chunk_of(E, N)).setdefault('obj', []).append(rec); nobj += 1
+log(nobj, 'mapped street objects')
+power = []
+for w, (nds, t) in ways.items():
+  if t.get('power') in ('line', 'minor_line'):
+    pts = way_pts(w)
+    if len(pts) < 2: continue
+    E = np.array([p[0] for p in pts]); N = np.array([p[1] for p in pts]); ys = dtm_at(E, N)
+    power.append({'k': 1 if t['power'] == 'line' else 0, 'p': [v for p, y in zip(pts, ys) for v in (*loc(*p), round(float(y), 2))]})
+log(len(power), 'power lines')
 
 # ---------------------------------------------------------------- spawn points and the sprint route
 def nearest_road_node(E, N, min_rank=6):
@@ -453,7 +541,25 @@ def spawn_at(lonlat, label, min_rank=6):
   x, z = loc(*NE[n]); ax, az = loc(*a); bx, bz = loc(*b)
   h = math.atan2(bx - ax, bz - az)
   return {'name': label, 'x': x, 'z': z, 'h': round(h, 3), 'road': t.get('name') or t.get('ref'), 'node': n}
-spawns = [spawn_at((-1.26215, 51.24365), 'Overton', 4), spawn_at((-1.33775, 51.23020), 'Whitchurch', 4)]
+def spawn_on(lonlat, label, road_name):
+  """Nearest point on a named road (closest segment, not node) to a place, in the left lane, facing along the road."""
+  E, N = tr.transform(*lonlat); best = None
+  for w, nds, t, pts, wd, hw in road_ways:
+    if t.get('name') != road_name: continue
+    for a, b in zip(pts, pts[1:]):
+      dx, dn = b[0] - a[0], b[1] - a[1]; L2 = dx * dx + dn * dn or 1
+      f = max(0, min(1, ((E - a[0]) * dx + (N - a[1]) * dn) / L2))
+      px, pn = a[0] + dx * f, a[1] + dn * f; d = math.hypot(E - px, N - pn)
+      if best is None or d < best[0]: best = (d, px, pn, a, b, wd)
+  d, px, pn, a, b, wd = best
+  x, z = loc(px, pn); ax, az = loc(*a); bx, bz = loc(*b)
+  h = math.atan2(bx - ax, bz - az)
+  # keep left: shift a quarter of the road width to the left of the direction of travel
+  lx, lz = math.cos(h), -math.sin(h)
+  return {'name': label, 'x': round(x + lx * wd * 0.25, 1), 'z': round(z + lz * wd * 0.25, 1), 'h': round(h, 3), 'road': road_name, 'node': nearest_road_node(px, pn, 9)[1], 'near': round(d, 1)}
+# Overton: on the High Street outside Domino's (10 Winchester Street, by the High Street junction)
+dom = spawn_on((-1.2631628, 51.2433331), 'Overton', 'Winchester Street')
+spawns = [dom, spawn_at((-1.33775, 51.23020), 'Whitchurch', 4)]
 # B3400 midway and the highest public road in the box
 b34 = [n for w, nds, t, pts, wd, hw in road_ways if t.get('ref') == 'B3400' for n in nds if n in NE]
 if b34:
@@ -516,7 +622,7 @@ for cj in range(CJ):
     with gzip.open(os.path.join(OUT, 'c', f'{ci}_{cj}.bin.gz'), 'wb', 9) as f: f.write(buf)
     ch = chunks.get((ci, cj))
     with open(os.path.join(OUT, 'c', f'{ci}_{cj}.json'), 'w') as f:
-      json.dump(ch or {}, f, separators=(',', ':'))
+      json.dump(ch or {}, f, separators=(',', ':'), default=lambda o: o.item())
 FAR = 20
 far = Hq[::FAR // G, ::FAR // G]
 farc = (cls_out & 0x7f)[::FAR // G, ::FAR // G].astype(np.uint8)
@@ -529,7 +635,7 @@ meta = {
   'chunk': CHUNK, 'grid': G, 'ci': CI, 'cj': CJ, 'far': {'step': FAR, 'nx': far.shape[1], 'ny': far.shape[0]},
   'hscale': 0.05, 'classes': CLS,
   'spawns': spawns, 'sprint': {'route': [v for p in rpts for v in p], 'cps': cps, 'length': round(total)},
-  'names': names, 'mini': mini, 'rail': rail, 'water': water_polys, 'streams': streams,
+  'names': names, 'mini': mini, 'power': power, 'rail': rail, 'water': water_polys, 'streams': streams,
 }
 with open(os.path.join(OUT, 'meta.json'), 'w') as f: json.dump(meta, f, separators=(',', ':'))
 log('done', sum(os.path.getsize(p) for p in glob.glob(os.path.join(OUT, '**', '*'), recursive=True)) // 1024, 'KB')

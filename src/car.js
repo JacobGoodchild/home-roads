@@ -107,7 +107,7 @@ export class Car {
         this.x += res.x - cx; this.z += res.z - cz;
         const vn = this.vx * res.nx + this.vz * res.nz;
         if (vn < 0) {
-          const k = res.soft ? 1.0 : 1.25;
+          const k = 1.0; // slide along walls rather than bouncing off them
           this.vx -= res.nx * vn * k; this.vz -= res.nz * vn * k;
           const scrub = res.soft ? 0.9 : 1 - Math.min(0.3, -vn * 0.012);
           this.vx *= scrub; this.vz *= scrub;
@@ -135,9 +135,8 @@ export class Car {
     this.vy -= 9.8 * dt; this.y += this.vy * dt;
     if (this.y <= g) {
       const land = -this.vy;
-      // keep the ground's upward speed so the car can leave crests; ignore jumps from data swaps or steps
-      const gv = (g - (this.gPrev ?? g)) / dt;
-      this.vy = this.speed > 12 && gv < 8 ? Math.max(0, gv) * 0.85 : 0;
+      // on the ground the car simply follows it: no launches off kerbs or LIDAR steps (it can still drop off real edges)
+      this.vy = 0;
       this.y = g; this.air = false;
       if (land > 6) this.landed = land;
     } else if (this.y > g + 0.25) this.air = true;

@@ -109,3 +109,11 @@ in plain English: what's done, what isn't and why, the link to the live game, an
 - 10:30 Brief update from Jacob: REAL data only. Roof shapes from LIDAR, objects only where OSM maps them, OSM tags
   where they exist, neutral defaults elsewhere. Removing the invented details (windows atlas, made-up lamp posts,
   random tree colours/species).
+- 10:50 Jacob's feedback: start outside Domino's in Overton, stop the glitches (thrown into the sky, crashing off
+  buildings), and look like his Street View photos of Winchester Street (white render + red brick terraces, sash
+  windows, clay/slate roofs, chimneys, brick walls with railings, bollards, lamp post, parked cars, big trees),
+  target is desktop Chrome. Done: Overton spawn is on Winchester Street 10 m from Domino's (OSM node 11085421488,
+  10 Winchester Street), facing the High Street crossroads. Root cause of the sky launches: small LIDAR steps (kerbs,
+  walls) were treated as ramps at speed; the car now just follows the ground. Walls slide instead of bounce.
+  A robot driver test drives the whole Overton→Whitchurch route: no launches, reaches the end.
+  Roofs now come from the LIDAR (1 m grid per building), OSM street objects only (lamps, signs, poles, post boxes...).

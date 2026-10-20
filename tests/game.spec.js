@@ -55,3 +55,19 @@ test("screenshots in Overton, portrait and landscape", async ({ page }) => {
     await page.screenshot({ path: `screenshots/overton-${w}x${h}.png` });
   }
 });
+
+test("a robot driver gets from Overton to Whitchurch without being launched or stuck", async ({ page }) => {
+  await open(page, "sprint", "&quality=low");
+  let last;
+  for (let s = 0; s < 260; s += 20) last = await page.evaluate(() => window.__hr.robot(20, 25));
+  expect(last.i).toBeGreaterThan(last.of - 10);
+  expect(last.maxAir).toBeLessThan(1.5);
+});
+
+test("Overton starts outside Domino's", async ({ page }) => {
+  await open(page, "Overton");
+  const c = await page.evaluate(() => window.__hr.car);
+  expect(c.road).toContain("Winchester Street");
+  // Domino's (OSM node 11085421488, 10 Winchester Street) is at x 2530.4, z -608.5 in game coordinates
+  expect(Math.hypot(c.x - 2530.4, c.z + 608.5)).toBeLessThan(15);
+});

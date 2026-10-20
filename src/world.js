@@ -6,14 +6,14 @@ import { groundMaterial, chunkGeometry, farGeometry } from "./terrain.js";
 import { roadMaterial, paveMaterial, stoneMaterial, buildRoads, buildRail, buildWater, waterMaterial } from "./roads.js";
 import { buildingMaterials, buildBuildings } from "./buildings.js";
 import { buildTrees } from "./vegetation.js";
-import { buildLamps, lampMaterials } from "./lamps.js";
+import { buildObjects, buildPower, objectMats } from "./objects.js";
 
 export class World {
   constructor(stage, map, radius) {
     this.stage = stage; this.map = map; this.radius = radius;
     this.root = new THREE.Group(); stage.scene.add(this.root);
     const ground = groundMaterial();
-    this.mats = { ground, road: roadMaterial(), pave: paveMaterial(), stone: stoneMaterial(), water: waterMaterial(), ...buildingMaterials(), ...lampMaterials() };
+    this.mats = { ground, road: roadMaterial(), pave: paveMaterial(), stone: stoneMaterial(), water: waterMaterial(), ...buildingMaterials() };
     this.mats.pave.side = THREE.DoubleSide; this.mats.stone.side = THREE.DoubleSide; this.mats.wall.side = THREE.DoubleSide;
     // far ground with a mask of chunks that have their own detailed mesh
     this.mask = new THREE.DataTexture(new Uint8Array(map.CI * map.CJ * 4), map.CI, map.CJ, THREE.RGBAFormat);
@@ -28,6 +28,7 @@ export class World {
     const m = map.meta;
     this.rail = buildRail(m.rail); this.root.add(this.rail);
     this.water = buildWater(m.water, m.streams, this.mats.water); this.root.add(this.water);
+    this.power = buildPower(m.power || [], (x, z) => map.heightAt(x, z)); this.root.add(this.power);
     this.live = new Map(); // key -> { lod, group, ci, cj }
     this.queue = [];
     this.centre = null;
@@ -70,9 +71,9 @@ export class World {
     const ground = new THREE.Mesh(chunkGeometry(c, this.map.n, this.map.g, step), this.mats.ground);
     ground.receiveShadow = lod <= 1; g.add(ground);
     if (lod <= 2) for (const m of buildRoads(c, h, this.mats)) { if (lod > 0) m.castShadow = false; g.add(m); }
-    if (lod <= 2) for (const m of buildBuildings(c, this.mats)) { if (lod > 0) m.castShadow = false; g.add(m); }
+    if (lod <= 2) for (const m of buildBuildings(c, this.mats, lod)) { if (lod > 0) m.castShadow = false; g.add(m); }
     for (const m of buildTrees(c, h, lod === 0, [1, 1, 0.6, 0.3][lod])) { if (lod > 0) m.castShadow = false; g.add(m); }
-    if (lod <= 1) for (const m of buildLamps(c, h, this.mats)) { if (lod > 0) m.castShadow = false; g.add(m); }
+    if (lod <= 1) for (const m of buildObjects(c, h, (x, z) => this.map.roadAt(x, z, {}))) { if (lod > 0) m.castShadow = false; g.add(m); }
     this.root.add(g);
     this.live.set(k, { lod, group: g, ci: c.ci, cj: c.cj });
     this.setMask(c.ci, c.cj, 255);
@@ -93,7 +94,6 @@ export class World {
     this.mats.road.userData.uniforms.wet.value = wet;
     this.mats.wall.userData.uniforms.night.value = night;
     this.mats.water.userData.uniforms.time.value = time;
-    this.mats.lampHead.emissiveIntensity = night > 0.3 ? 3 : 0;
-    this.mats.lampPool.opacity = night * 0.55;
+    objectMats.lamp.emissiveIntensity = night > 0.3 ? 3 : 0;
   }
 }

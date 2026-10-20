@@ -229,7 +229,7 @@ function frame() {
     G.skids.mark("rl", car.x - fx * 1.4 - rx * 0.85, car.y, car.z - fz * 1.4 - rz * 0.85, car.h, slip);
     G.skids.mark("rr", car.x - fx * 1.4 + rx * 0.85, car.y, car.z - fz * 1.4 + rz * 0.85, car.h, slip);
   } else { G.skids.mark("rl", 0, 0, 0, 0, 0); G.skids.mark("rr", 0, 0, 0, 0, 0); }
-  G.cam.update(car, ms / 1000, 0);
+  if (!G.freeCam) G.cam.update(car, ms / 1000, 0);
   G.stage.follow(car.x, car.y, car.z);
   G.rainFx.update(ms / 1000, G.stage.camera.position, car.vx, car.vz);
   updateSky(false);
@@ -287,6 +287,20 @@ if (TEST) {
       return this.car;
     },
     start(w) { startDrive(w); },
+    // drive the sprint route with a simple robot driver (physics only) and report airtime and crashes
+    robot(secs, speed = 25) {
+      const r = G.map.meta.sprint.route, car = G.car; let i = 0; { let bd = 1e9; for (let k = 0; k < r.length; k += 2) { const d = Math.hypot(r[k] - car.x, r[k + 1] - car.z); if (d < bd) { bd = d; i = k; } } i = Math.min(r.length - 2, i + 2); } let maxAir = 0, hits = 0, worst = 0, maxY = 0;
+      for (let k = 0; k < secs * 60; k++) {
+        while (i < r.length - 2 && Math.hypot(r[i] - car.x, r[i + 1] - car.z) < 14) i += 2;
+        const ang = Math.atan2(r[i] - car.x, r[i + 1] - car.z);
+        let d = ang - car.h; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI;
+        car.step(1 / 60, { steer: Math.max(-1, Math.min(1, -d * 2.5)), throttle: car.vF < speed ? 1 : 0, brake: car.vF > speed + 3 ? 0.5 : 0 });
+        if (k % 20 === 0) G.world.update(car.x, car.z, 0);
+        const g = car.groundAt(car.x, car.z); maxAir = Math.max(maxAir, car.y - g); maxY = Math.max(maxY, car.vy);
+        if (car.wallHit > 2) { hits++; worst = Math.max(worst, car.wallHit); }
+      }
+      return { x: car.x, z: car.z, i, of: r.length, maxAir, maxVy: maxY, hits, worst };
+    },
     info() { const r = G.stage.renderer.info; return { calls: r.render.calls, tris: r.render.triangles, geos: r.memory.geometries }; },
   };
 }
