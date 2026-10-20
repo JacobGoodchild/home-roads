@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#101a14">
+<meta name="description" content="Home Roads: drive a hypercar around the real roads of Overton and Whitchurch, Hampshire.">
+<title>Home Roads</title>
+<link rel="stylesheet" href="styles.css">
+<script type="importmap">
+{ "imports": { "three": "./vendor/three/three.module.js", "three/addons/": "./vendor/three/addons/" } }
+</script>
+</head>
+<body>
+<div id="stage"></div>
+<div id="loading"><div class="brand">HOME<span>ROADS</span></div><div class="bar"><i></i></div><div class="sub" id="loadMsg">Loading the map…</div></div>
+
+<div id="menu" hidden>
+  <div class="card">
+    <div class="brand">HOME<span>ROADS</span></div>
+    <p class="tag">The real roads of Overton, Whitchurch and the B3400, Hampshire.</p>
+    <div class="label">Start in</div>
+    <div class="row" id="spawnBtns"></div>
+    <div class="label">Challenge</div>
+    <div class="row"><button id="sprintBtn" class="primary">Overton → Whitchurch sprint</button></div>
+    <div class="best" id="bestV"></div>
+    <div class="label">Time of day</div>
+    <div class="row seg" id="timeSeg"></div>
+    <div class="label">Weather</div>
+    <div class="row seg" id="wxSeg"></div>
+    <div class="label">Graphics</div>
+    <div class="row seg" id="qSeg"></div>
+    <div class="label">Car</div>
+    <div class="row seg" id="carSeg"></div>
+    <p class="credit">Map data © OpenStreetMap contributors (ODbL). Heights: Environment Agency LIDAR (OGL v3). Car code from Apex Ring. <a href="CREDITS.md" target="_blank" rel="noopener">Credits</a></p>
+  </div>
+</div>
+
+<div id="hud" hidden>
+  <div class="topbar">
+    <button id="menuBtn" class="pill">☰</button>
+    <div id="roadV" class="road"></div>
+    <button id="camBtn" class="pill">Cam</button>
+    <button id="resetBtn" class="pill">Reset</button>
+  </div>
+  <div id="sprintHud" hidden><div id="sprintTime">0:00.0</div><div id="sprintCp"></div></div>
+  <canvas id="mini" width="300" height="300"></canvas>
+  <div id="speedo"><b id="spdV">0</b><span>mph</span></div>
+  <div id="pads">
+    <div class="left"><button data-pad="l" class="pad">◀</button><button data-pad="r" class="pad">▶</button></div>
+    <div class="right"><button data-pad="hand" class="pad small">HB</button><button data-pad="brake" class="pad">BRAKE</button><button data-pad="gas" class="pad gas">GAS</button></div>
+  </div>
+  <div id="toast" hidden></div>
+  <div id="arrow" hidden>➤</div>
+</div>
+<script type="module" src="src/main.js"></script>
+</body>
+</html>
