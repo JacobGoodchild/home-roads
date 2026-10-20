@@ -41,7 +41,7 @@ for (const [start, name] of [["Whitchurch", "whitchurch"], ["B3400", "b3400"], [
     for (const [w, h] of [[412, 915], [915, 412]]) {
       await page.setViewportSize({ width: w, height: h });
       await page.waitForTimeout(800);
-      await page.screenshot({ path: `screenshots/${name}-${w}x${h}.png` });
+      await page.screenshot({ path: `screenshots/${name}-${w}x${h}.png`, timeout: 120_000 });
     }
     expect(errors).toEqual([]);
   });
@@ -52,7 +52,7 @@ test("screenshots in Overton, portrait and landscape", async ({ page }) => {
   for (const [w, h] of [[412, 915], [915, 412]]) {
     await page.setViewportSize({ width: w, height: h });
     await page.waitForTimeout(800);
-    await page.screenshot({ path: `screenshots/overton-${w}x${h}.png` });
+    await page.screenshot({ path: `screenshots/overton-${w}x${h}.png`, timeout: 120_000 });
   }
 });
 

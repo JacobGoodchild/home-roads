@@ -24,7 +24,7 @@ const setLoad = (f, msg) => { loadBar.style.width = Math.round(f * 100) + "%"; i
 
 const CAR_CHOICES = ["vanta", "pico", "solace", "brute"].map((id) => CARS.find((c) => c.id === id) || CARS[0]);
 const TIMES = [["real", "Now (UK)"], ["7.5", "Morning"], ["13", "Midday"], ["17.6", "Sunset"], ["22", "Night"]];
-const WX = [["dry", "Dry"], ["rain", "Rain"], ["live", "Live weather"]];
+const WX = [["live", "Real weather now"], ["dry", "Dry"], ["rain", "Rain"]];
 const QS = [["auto", "Best (auto)"], ["high", "Sharp"], ["medium", "Balanced"], ["low", "Fast (older phones)"]];
 
 async function boot() {
@@ -49,6 +49,7 @@ async function boot() {
   // show the world behind the menu at Overton
   const sp = map.meta.spawns[0];
   placeAt(sp);
+  if (!TEST && (save.weather || "live") === "live") await Promise.race([fetchLiveWeather(true), new Promise((r) => setTimeout(r, 4000))]);
   await warmUp();
   $("loading").style.opacity = 0; setTimeout(() => ($("loading").hidden = true), 400);
   if (START) startDrive(START === "sprint" ? "sprint" : START);
@@ -107,7 +108,7 @@ function setupMenu() {
   }
   $("sprintBtn").onclick = () => startDrive("sprint");
   seg($("timeSeg"), TIMES, () => save.time, (v) => { save.time = v; writeSave(); applyEnv(); });
-  seg($("wxSeg"), WX, () => save.weather || "dry", (v) => { save.weather = v; writeSave(); if (v === "live") fetchLiveWeather(); else applyEnv(); });
+  seg($("wxSeg"), WX, () => save.weather || "live", (v) => { save.weather = v; writeSave(); if (v === "live") fetchLiveWeather(); else applyEnv(); });
   seg($("qSeg"), QS, () => save.quality, (v) => { save.quality = v; writeSave(); location.reload(); });
   seg($("carSeg"), CAR_CHOICES.map((c) => [c.id, c.name]), () => (CAR_CHOICES.find((c) => c.id === save.car) || CAR_CHOICES[0]).id, (v) => { save.car = v; writeSave(); makePlayerCar(); placeAt({ x: G.car.x, z: G.car.z, h: G.car.h }); });
   $("menuBtn").onclick = () => showMenu();
@@ -123,20 +124,20 @@ function setupMenu() {
 }
 function updateBest() { const b = save.best.sprint; $("bestV").textContent = b ? `Best: ${fmt(b)} (${(G.map.meta.sprint.length / 1609.34).toFixed(1)} miles)` : `${(G.map.meta.sprint.length / 1609.34).toFixed(1)} miles along the B3400. Checkpoints on the way.`; }
 
-// Live weather is opt-in: one request to open-meteo.com from the menu, never while driving.
-async function fetchLiveWeather() {
-  toast("Asking open-meteo.com for the weather in Overton…", 2000);
+// Real weather (the default): one request to open-meteo.com while loading or from the menu, never while driving.
+async function fetchLiveWeather(quiet) {
+  if (!quiet) toast("Asking open-meteo.com for the weather in Overton…", 2000);
   try {
     const r = await fetch("https://api.open-meteo.com/v1/forecast?latitude=51.24&longitude=-1.30&current=precipitation,rain,cloud_cover,weather_code", { cache: "no-store" });
     const j = await r.json(), c = j.current;
     G.live = { rain: (c.precipitation || 0) > 0.05 || (c.weather_code >= 51 && c.weather_code <= 82), cloud: (c.cloud_cover || 0) / 100 };
-    toast(`Live: ${G.live.rain ? "raining" : "dry"}, ${c.cloud_cover}% cloud`, 2500);
-  } catch (_) { G.live = null; toast("Couldn't get the live weather, using dry.", 2500); }
+    if (!quiet) toast(`Live: ${G.live.rain ? "raining" : "dry"}, ${c.cloud_cover}% cloud`, 2500);
+  } catch (_) { G.live = null; if (!quiet) toast("Couldn't get the live weather, using dry.", 2500); }
   applyEnv();
 }
 
 function applyEnv() {
-  const wx = RAIN != null ? (RAIN ? "rain" : "dry") : save.weather || "dry";
+  const wx = RAIN != null ? (RAIN ? "rain" : "dry") : save.weather || "live";
   G.rain = wx === "rain" || (wx === "live" && G.live && G.live.rain);
   G.cloud = wx === "live" && G.live ? G.live.cloud : G.rain ? 0.95 : 0.35;
   G.hour = HOUR != null ? HOUR : save.time === "real" ? null : Number(save.time);

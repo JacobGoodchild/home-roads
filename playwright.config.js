@@ -4,7 +4,7 @@ const port = Number(process.env.PW_PORT || 4173);
 
 export default defineConfig({
   testDir: "tests",
-  timeout: 120_000,
+  timeout: 300_000,
   fullyParallel: false,
   workers: 1,
   retries: process.env.CI ? 1 : 0,

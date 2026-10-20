@@ -128,6 +128,16 @@ export function buildingMaterials() {
   return { wall, roof, pot, signMat: new THREE.MeshStandardMaterial({ roughness: 0.5 }) };
 }
 
+let railMat = null;
+function railMaterial() {
+  if (railMat) return railMat;
+  const c = document.createElement("canvas"); c.width = 64; c.height = 64; const g = c.getContext("2d");
+  g.fillStyle = "#111"; for (let x = 0; x < 64; x += 16) g.fillRect(x + 6, 4, 4, 60); g.fillRect(0, 4, 64, 4); g.fillRect(0, 54, 64, 4);
+  g.beginPath(); for (let x = 0; x < 64; x += 16) { g.moveTo(x + 4, 6); g.lineTo(x + 8, 0); g.lineTo(x + 12, 6); } g.fill();
+  const t = new THREE.CanvasTexture(c); t.wrapS = THREE.RepeatWrapping;
+  railMat = new THREE.MeshStandardMaterial({ map: t, alphaTest: 0.5, side: THREE.DoubleSide, metalness: 0.5, roughness: 0.5 });
+  return railMat;
+}
 function polyArea(pts) { let a = 0; for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) a += (pts[j][0] + pts[i][0]) * (pts[j][1] - pts[i][1]); return a / 2; }
 
 function roofGrid(rf) {
@@ -190,6 +200,8 @@ export function buildBuildings(chunk, mats, lod = 0) {
   const W = { pos: [], uv: [], a: [], b: [] }, R = { pos: [], ra: [] };
   const out = [], pots = [];
   const segs = chunk.segs || [];
+  const rails = [];
+  const nearestSeg = (x, z) => { let best = null; for (const s of segs) { const dx = s.bx - s.ax, dz = s.bz - s.az, L2 = dx * dx + dz * dz || 1; let t = ((x - s.ax) * dx + (z - s.az) * dz) / L2; t = Math.max(0, Math.min(1, t)); const d = Math.hypot(x - s.ax - dx * t, z - s.az - dz * t); if (!best || d < best.d) best = { d, s }; } return best; };
   const nearestRoad = (x, z) => { let best = Infinity; for (const s of segs) { const dx = s.bx - s.ax, dz = s.bz - s.az, L2 = dx * dx + dz * dz || 1; let t = ((x - s.ax) * dx + (z - s.az) * dz) / L2; t = Math.max(0, Math.min(1, t)); best = Math.min(best, Math.hypot(x - s.ax - dx * t, z - s.az - dz * t)); } return best; };
   (chunk.f.bld || []).forEach((b, bi) => {
     const p = b.p, n = p.length / 2;
@@ -208,6 +220,31 @@ export function buildBuildings(chunk, mats, lod = 0) {
     let front = -1, fd = Infinity;
     pts.forEach((a, i) => { const c = pts[(i + 1) % pts.length]; const L = Math.hypot(c[0] - a[0], c[1] - a[1]); if (L < 2.5) return; const d = nearestRoad((a[0] + c[0]) / 2, (a[1] + c[1]) / 2); if (d < fd) { fd = d; front = i; } });
     const isShop = !!b.shop;
+    // front garden wall with railings along the back of the pavement (styled default, as on Winchester Street)
+    if (front >= 0 && !isShop && style !== 5 && area > 30 && lod <= 1) {
+      const a = pts[front], c = pts[(front + 1) % pts.length], ns = nearestSeg((a[0] + c[0]) / 2, (a[1] + c[1]) / 2);
+      if (ns && ns.s.pave) {
+        const s = ns.s, dx = s.bx - s.ax, dz = s.bz - s.az, L = Math.hypot(dx, dz) || 1, ux2 = dx / L, uz2 = dz / L;
+        const off = s.hw + s.pave + 0.15, set = ns.d - off;
+        if (set > 2 && set < 14) {
+          const side = Math.sign((cx - s.ax) * -uz2 + (cz - s.az) * ux2) || 1, nx2 = -uz2 * side, nz2 = ux2 * side;
+          const proj = (q) => { const t = (q[0] - s.ax) * ux2 + (q[1] - s.az) * uz2; return [s.ax + ux2 * t + nx2 * off, s.az + uz2 * t + nz2 * off, t]; };
+          let p0 = proj(a), p1 = proj(c); if (p0[2] > p1[2]) [p0, p1] = [p1, p0];
+          const len = p1[2] - p0[2] - 1.2;
+          if (len > 2) {
+            const q0 = [p0[0] + ux2 * 0.6, p0[1] + uz2 * 0.6], q1 = [q0[0] + ux2 * len, q0[1] + uz2 * len];
+            const y0 = s.ay + 0.1, hw2 = 0.12, H = 0.75;
+            for (const o of [-hw2, hw2]) {
+              const A = [q0[0] + nx2 * o, q0[1] + nz2 * o], C = [q1[0] + nx2 * o, q1[1] + nz2 * o];
+              W.pos.push(A[0], y0 - 0.4, A[1], C[0], y0 - 0.4, C[1], A[0], y0 + H, A[1], C[0], y0 - 0.4, C[1], C[0], y0 + H, C[1], A[0], y0 + H, A[1]);
+              W.uv.push(0, -0.4, len, -0.4, 0, H, len, -0.4, len, H, 0, H);
+              for (let q = 0; q < 6; q++) { W.a.push(2, len, 0, seed); W.b.push(0, -5); }
+            }
+            rails.push([q0[0], y0 + H, q0[1], q1[0], y0 + H, q1[1]]);
+          }
+        }
+      }
+    }
     for (let i = 0; i < pts.length; i++) {
       const a = pts[i], c = pts[(i + 1) % pts.length], L = Math.hypot(c[0] - a[0], c[1] - a[1]);
       if (L < 0.05) continue;
@@ -307,6 +344,16 @@ export function buildBuildings(chunk, mats, lod = 0) {
     g.setAttribute("position", new THREE.Float32BufferAttribute(R.pos, 3)); g.setAttribute("ra", new THREE.Float32BufferAttribute(R.ra, 4));
     g.computeVertexNormals(); g.computeBoundingSphere();
     const m = new THREE.Mesh(g, mats.roof); m.castShadow = m.receiveShadow = true; out.push(m);
+  }
+  if (rails.length) {
+    const pos = [], uv = [];
+    for (const [x0, y0, z0, x1, y1, z1] of rails) {
+      const L = Math.hypot(x1 - x0, z1 - z0), h = 0.65;
+      pos.push(x0, y0, z0, x1, y1, z1, x0, y0 + h, z0, x1, y1, z1, x1, y1 + h, z1, x0, y0 + h, z0);
+      uv.push(0, 0, L / 0.6, 0, 0, 1, L / 0.6, 0, L / 0.6, 1, 0, 1);
+    }
+    const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2)); g.computeVertexNormals();
+    const m = new THREE.Mesh(g, railMaterial()); m.castShadow = true; out.push(m);
   }
   if (pots.length) {
     const pg = new THREE.CylinderGeometry(0.11, 0.13, 0.45, 8).translate(0, 0.22, 0);
