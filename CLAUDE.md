@@ -117,3 +117,9 @@ in plain English: what's done, what isn't and why, the link to the live game, an
   walls) were treated as ramps at speed; the car now just follows the ground. Walls slide instead of bounce.
   A robot driver test drives the whole Overton→Whitchurch route: no launches, reaches the end.
   Roofs now come from the LIDAR (1 m grid per building), OSM street objects only (lamps, signs, poles, post boxes...).
+- 11:40 Buildings rebuilt to look like Jacob's Street View photos of Winchester Street: facades drawn in a shader
+  (sash windows with white frames and reflective glass, front door on the wall facing the road, shopfronts with a dark
+  fascia and the real OSM name, e.g. "Domino's"), white/cream render, red brick, flint. Roofs fitted to the LIDAR
+  (flat / gable / hip with the scanned pitch, ridge direction and ridge height) for ~1,600 buildings; the rest keep the
+  smoothed scanned roof grid. Chimneys from LIDAR spikes (1,363 buildings) with pots. Clay tile / slate textures.
+  Trees: leafy leaf-card crowns at their LIDAR positions/heights/widths.

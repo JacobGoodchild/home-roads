@@ -382,6 +382,7 @@ def min_rect(xy):
     if best is None or a < best[0]: best = (a, ux, uz)
   return best[1], best[2]
 DSM = ND + D  # first-return surface, absolute
+ERRS = []
 def roof_grid(k, ring, base):
   """Real roof shape: the LIDAR surface over the footprint on a 1 m grid aligned with the building."""
   xy = np.array([loc(*p) for p in ring])
@@ -404,15 +405,50 @@ def roof_grid(k, ring, base):
   core = ndimage.binary_erosion(inside, iterations=1)
   if core.sum() < 3: core = inside
   v = np.where(core, v, np.nan)
+  raw = v.copy()
   vm = ndimage.median_filter(np.nan_to_num(v, nan=-1e3), size=3)
   vm = np.where(core & (vm > -100), vm, np.where(core, v, np.nan))
+  # chimneys: narrow spikes standing clearly above the smoothed roof (real LIDAR returns)
+  spike = np.nan_to_num(raw - vm, nan=0)
+  pk = (spike > 0.9) & (spike < 6) & (raw == ndimage.maximum_filter(np.nan_to_num(raw, nan=-1e3), size=3)) & core
+  chim = [[round(float(S_[j, i]), 1), round(float(T_[j, i]), 1), round(float(raw[j, i]), 1)] for j, i in zip(*np.nonzero(pk))][:6]
   idx = ndimage.distance_transform_edt(np.isnan(vm), return_distances=False, return_indices=True)
   vm = vm[tuple(idx)]
   cover = ndimage.binary_dilation(inside, iterations=1)
   vm = np.clip(vm, 2.0, 50)
   q = 0.1 if vm[cover].max() < 25 else 0.2
   out = np.where(cover, np.clip(np.round(vm / q), 1, 255), 0).astype(np.uint8)
-  return {'f': [round(ux, 5), round(uz, 5), s0, t0, ns, nt, st, q], 'v': base64.b64encode(out.tobytes()).decode()}, float(np.percentile(vm[inside], 95)), float(np.percentile(vm[inside], 15))
+  # fit a clean roof (flat / gable / hip, either ridge direction) to the scan; keep the scan if nothing fits
+  model = None; best = None
+  if inside.sum() >= 12:
+    Si, Ti, Hi = S_[inside], T_[inside], np.where(np.isnan(raw[inside]), vm[inside], raw[inside])
+    sa, sb, ta, tb = s_.min(), s_.max(), t_.min(), t_.max(); sc, tc = (sa + sb) / 2, (ta + tb) / 2; hs, ht = (sb - sa) / 2, (tb - ta) / 2
+    cands = [('flat', np.zeros_like(Hi), None)]
+    for ax, off in [(a_, o_) for a_ in ('s', 't') for o_ in (-0.3, -0.15, 0, 0.15, 0.3)]:
+      rc = (tc + off * ht) if ax == 's' else (sc + off * hs)
+      dd = np.abs(Ti - rc) if ax == 's' else np.abs(Si - rc)          # distance from a ridge running along s (or t)
+      half = ht if ax == 's' else hs; other = hs if ax == 's' else ht
+      cands.append(('gable_' + ax, dd, rc))
+      if other > half:
+        ea = np.maximum(dd, (np.abs(Si - sc) if ax == 's' else np.abs(Ti - tc)) - (other - half))
+        cands.append(('hip_' + ax, ea, rc))
+    best = None
+    for name, x, rcv in cands:
+      if name == 'flat': a, k = float(np.median(Hi)), 0.0; pred = np.full_like(Hi, a)
+      else:
+        A = np.vstack([np.ones_like(x), -x]).T
+        w = np.ones_like(Hi, dtype=bool)
+        for _it in range(3):   # robust: refit without chimneys, dormers and edge returns
+          (a, k), *_ = np.linalg.lstsq(A[w], Hi[w], rcond=None); pred = a - k * x
+          w = np.abs(Hi - pred) < 0.7
+          if w.sum() < 8: break
+        if k < 0.15 or k > 2.5: continue
+      err = float(np.median(np.abs(Hi - pred))) + 0.25 * float(np.mean(np.abs(Hi - pred) > 1.0))
+      if best is None or err < best[0] - (0.08 if name == 'flat' else 0): best = (err, name, float(a), float(k), rcv)
+    if best and best[0] < 0.6:
+      model = [best[1], round(best[2], 2), round(best[3], 3), round(float(sa), 2), round(float(sb), 2), round(float(ta), 2), round(float(tb), 2), round(best[0], 2), round(float(best[4]), 2) if best[4] is not None else 0]
+  ERRS.append(best[0] if best else 9)
+  return {'f': [round(ux, 5), round(uz, 5), s0, t0, ns, nt, st, q], 'v': base64.b64encode(out.tobytes()).decode(), 'ch': chim, 'm': model}, float(np.percentile(vm[inside], 95)), float(np.percentile(vm[inside], 15))
 for k, (tags, ring, inner) in enumerate(blds):
   a, b = starts[k], starts[k + 1]
   v = val_s[a:b]
@@ -442,6 +478,7 @@ for k, (tags, ring, inner) in enumerate(blds):
   if tags.get('amenity') == 'place_of_worship' or bt in ('church', 'chapel'): rec['t'] = 'church'
   C(chunk_of(ce, cn))['bld'].append(rec)
 del B, DSM
+log('roof fit error percentiles', np.percentile(ERRS, [10, 25, 50, 75, 90]))
 log(len(blds), 'buildings')
 
 # ---------------------------------------------------------------- trees and bushes from the LIDAR canopy

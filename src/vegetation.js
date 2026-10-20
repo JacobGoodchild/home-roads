@@ -34,6 +34,55 @@ function crownGeo(detail, seed, conifer) {
 }
 function trunkGeo() { const g = new THREE.CylinderGeometry(0.035, 0.06, 0.6, 6, 1, true); g.translate(0, 0.3, 0); return g; }
 
+// Leaf-cluster texture drawn once on a canvas: hundreds of small leaves in mixed greens, transparent between them.
+function leafTexture() {
+  const c = document.createElement("canvas"); c.width = c.height = 256;
+  const g = c.getContext("2d");
+  for (let i = 0; i < 520; i++) {
+    const a = hash(i * 3 + 1) * Math.PI * 2, r = Math.sqrt(hash(i * 3 + 2)) * 118, x = 128 + Math.cos(a) * r, y = 128 + Math.sin(a) * r;
+    const L = 22 + hash(i * 7) * 30;
+    g.fillStyle = `hsl(${88 + hash(i * 5) * 34},${32 + hash(i * 11) * 28}%,${18 + hash(i * 13) * 30}%)`;
+    g.save(); g.translate(x, y); g.rotate(hash(i * 17) * Math.PI * 2);
+    g.beginPath(); g.ellipse(0, 0, 6 + hash(i) * 5, L * 0.35, 0, 0, Math.PI * 2); g.fill(); g.restore();
+  }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+  return t;
+}
+// crown made of leaf cards scattered through an ellipsoid; normals point out from the centre so it shades like a canopy
+function cardCrown(seed) {
+  const pos = [], nor = [], uv = [], idx = [];
+  const N = 46;
+  for (let k = 0; k < N; k++) {
+    const u = hash(seed * 131 + k * 7 + 1), v = hash(seed * 131 + k * 7 + 2), w = hash(seed * 131 + k * 7 + 3);
+    const th = u * Math.PI * 2, ph = Math.acos(2 * v - 1), rr = 0.45 + 0.55 * Math.cbrt(w);
+    const cx = Math.sin(ph) * Math.cos(th) * rr * 1.05, cy = 0.62 + Math.cos(ph) * rr * 0.36, cz = Math.sin(ph) * Math.sin(th) * rr * 1.05;
+    const sz = 0.55 + hash(seed + k * 13) * 0.35;
+    const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(hash(k * 5 + seed) * 6.28, hash(k * 9 + seed) * 6.28, hash(k * 11 + seed) * 6.28));
+    const ax = new THREE.Vector3(1, 0, 0).applyQuaternion(q).multiplyScalar(sz * 0.5), ay = new THREE.Vector3(0, 1, 0).applyQuaternion(q).multiplyScalar(sz * 0.5 * 0.42 / 0.36);
+    ay.y *= 0.36 / 0.42;
+    const base = pos.length / 3;
+    for (const [a, b, s, t] of [[-1, -1, 0, 0], [1, -1, 1, 0], [1, 1, 1, 1], [-1, 1, 0, 1]]) {
+      const px = cx + ax.x * a + ay.x * b, py = cy + ax.y * a + ay.y * b, pz = cz + ax.z * a + ay.z * b;
+      pos.push(px, py, pz);
+      const n = new THREE.Vector3(px, (py - 0.6) * 2.2, pz).normalize(); nor.push(n.x, n.y, n.z);
+      uv.push(s, t);
+    }
+    idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute("normal", new THREE.Float32BufferAttribute(nor, 3)); g.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
+  g.setIndex(idx);
+  return g;
+}
+function trunkWithBranches() {
+  const parts = [new THREE.CylinderGeometry(0.03, 0.055, 0.62, 7).translate(0, 0.31, 0)];
+  for (let k = 0; k < 4; k++) {
+    const b = new THREE.CylinderGeometry(0.008, 0.018, 0.35, 5).translate(0, 0.175, 0);
+    b.rotateZ(0.75 + hash(k) * 0.3); b.rotateY(k * 1.6 + 0.3); b.translate(0, 0.42 + k * 0.05, 0); parts.push(b);
+  }
+  return mergeGeometries(parts.map((p) => (p.index ? p.toNonIndexed() : p)));
+}
+
 let shared = null;
 function getShared() {
   if (shared) return shared;
@@ -51,18 +100,19 @@ function getShared() {
   };
   leaf.customProgramCacheKey = () => "leaf1";
   const bark = new THREE.MeshStandardMaterial({ map: photo("bark", { repeat: [2, 2] }), roughness: 1 });
+  const cards = new THREE.MeshStandardMaterial({ map: leafTexture(), alphaTest: 0.45, side: THREE.DoubleSide, roughness: 0.85 });
   shared = {
-    leaf, bark,
+    leaf, bark, cards, cardCrowns: [cardCrown(1), cardCrown(2), cardCrown(3)], core: (() => { const g = new THREE.IcosahedronGeometry(0.7, 1); g.scale(1.1, 0.42, 1.1); g.translate(0, 0.62, 0); return g; })(),
     crown: [crownGeo(true, 1.3, false), crownGeo(true, 4.1, false)], crownLo: crownGeo(false, 2, false),
     conifer: crownGeo(true, 0, true), coniferLo: crownGeo(false, 0, true),
-    trunk: trunkGeo(),
+    trunk: trunkWithBranches(),
     bush: (() => { const g = new THREE.IcosahedronGeometry(1, 1); g.scale(1, 0.75, 1); g.translate(0, 0.5, 0); return g; })(),
   };
   return shared;
 }
 
 // October in Hampshire: mostly green, some turning yellow, orange and brown
-const LEAF = [0x3f5a28, 0x4a6a2e, 0x55702f, 0x3a5426, 0x6b7a30, 0x8a7a2a, 0x9a6a26, 0x7a5a2a, 0x47612b];
+const LEAF = [0x5f7d3a, 0x6c8a40, 0x587538, 0x739245, 0x648238, 0x6a8a3c, 0x7d8f42, 0x5b7a36, 0x8a9a48];
 const CONIFER = [0x24382a, 0x2c4130, 0x30442a];
 const tmp = new THREE.Object3D(), col = new THREE.Color();
 
@@ -74,29 +124,22 @@ export function buildTrees(chunk, heightAt, near, density = 1) {
   const out = [];
   if (pick.length) {
     const seedOf = (i) => hash((Math.round(t[i * 4] * 10) * 73856093) ^ (Math.round(t[i * 4 + 1] * 10) * 19349663));
-    const groups = near ? [[], [], []] : [[], []];
-    for (const i of pick) {
-      const s = seedOf(i), h = t[i * 4 + 2];
-      const con = s < 0.08 && h > 8;
-      groups[con ? groups.length - 1 : near ? (s < 0.54 ? 0 : 1) : 0].push(i);
-    }
-    const geos = near ? [S.crown[0], S.crown[1], S.conifer] : [S.crownLo, S.coniferLo];
+    // species aren't in the data: every tree is drawn as a broadleaf (styled default), at its LIDAR position, height and width
+    const groups = near ? [[], [], []] : [[]];
+    for (const i of pick) groups[near ? Math.floor(seedOf(i) * 3) : 0].push(i);
     groups.forEach((g, gi) => {
       if (!g.length) return;
-      const con = gi === groups.length - 1;
-      const crown = new THREE.InstancedMesh(geos[gi], S.leaf, g.length);
+      const meshes = near ? [new THREE.InstancedMesh(S.core, S.leaf, g.length), new THREE.InstancedMesh(S.cardCrowns[gi], S.cards, g.length)] : [new THREE.InstancedMesh(S.crownLo, S.leaf, g.length)];
       g.forEach((i, k) => {
-        const x = t[i * 4], z = t[i * 4 + 1], h = Math.max(3, t[i * 4 + 2]), r = Math.max(1.2, t[i * 4 + 3]) * (con ? 0.55 : 0.82), s = seedOf(i);
+        const x = t[i * 4], z = t[i * 4 + 1], h = Math.max(3, t[i * 4 + 2]), r = Math.max(1.2, t[i * 4 + 3]), s = seedOf(i);
         const y = heightAt(x, z);
-        tmp.position.set(x, y + (con ? 0 : h * 0.06), z); tmp.rotation.set(0, s * 6.28, 0);
-        const ch = con ? h : h * 0.94, cr = Math.min(r, ch * 0.75);
-        tmp.scale.set(cr, ch, cr); tmp.updateMatrix(); crown.setMatrixAt(k, tmp.matrix);
-        col.setHex(con ? CONIFER[(s * 31 * CONIFER.length | 0) % CONIFER.length] : LEAF[(s * 97 * LEAF.length | 0) % LEAF.length]).multiplyScalar(0.85 + hash(i) * 0.3);
-        crown.setColorAt(k, col);
+        tmp.position.set(x, y, z); tmp.rotation.set(0, s * 6.28, 0);
+        const cr = Math.min(r * 0.95, h * 0.7);
+        tmp.scale.set(cr, h, cr); tmp.updateMatrix();
+        col.setHex(LEAF[(s * 97 * LEAF.length | 0) % LEAF.length]).multiplyScalar(0.9 + hash(i) * 0.2);
+        for (const m of meshes) { m.setMatrixAt(k, tmp.matrix); m.setColorAt(k, m.material === S.cards ? col.clone().multiplyScalar(1.6) : col.clone().multiplyScalar(0.55)); }
       });
-      crown.castShadow = true; crown.receiveShadow = true;
-      crown.computeBoundingSphere();
-      out.push(crown);
+      for (const m of meshes) { m.castShadow = true; m.receiveShadow = true; m.computeBoundingSphere(); out.push(m); }
     });
     if (near) {
       const trunks = new THREE.InstancedMesh(S.trunk, S.bark, pick.length);
