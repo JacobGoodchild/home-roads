@@ -48,7 +48,7 @@ export class World {
       for (const s of d.parked.cars) if (Math.hypot(s[0] - x, s[1] - z) < R) spots.cars.push(s);
       for (const s of d.parked.lamps) if (Math.hypot(s[0] - x, s[1] - z) < R * 1.6) spots.lamps.push(s);
     }
-    const meshes = buildParked(spots, (a, b) => this.map.heightAt(a, b), objectMats.lamp);
+    const meshes = buildParked(spots, (a, b) => this.map.heightAt(a, b), objectMats.lamp, objectMats.pool);
     for (const m of meshes) this.root.add(m);
     this.pk = { x, z, n: this.live.size, meshes };
   }
@@ -112,5 +112,6 @@ export class World {
     this.mats.wall.userData.uniforms.night.value = night;
     this.mats.water.userData.uniforms.time.value = time;
     objectMats.lamp.emissiveIntensity = night > 0.3 ? 3 : 0;
+    objectMats.pool.opacity = night * 0.45;
   }
 }

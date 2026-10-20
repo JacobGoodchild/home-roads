@@ -104,7 +104,7 @@ export function buildingMaterials() {
       }`)
       .replace("#include <roughnessmap_fragment>", "#include <roughnessmap_fragment>\n roughnessFactor = mix(roughnessFactor, 0.04, gGlass);")
       .replace("#include <metalnessmap_fragment>", "#include <metalnessmap_fragment>\n metalnessFactor = mix(metalnessFactor, 0.55, gGlass);")
-      .replace("#include <emissivemap_fragment>", "#include <emissivemap_fragment>\n totalEmissiveRadiance += vec3(1.0, 0.75, 0.45) * gLit * night * 1.4;");
+      .replace("#include <emissivemap_fragment>", "#include <emissivemap_fragment>\n totalEmissiveRadiance += vec3(1.0, 0.68, 0.36) * step(0.6, gLit) * night * 0.45;");
   };
   wall.customProgramCacheKey = () => "wall3";
 

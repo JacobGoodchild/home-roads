@@ -75,7 +75,8 @@ function variants() {
 }
 
 const tmp = new THREE.Object3D(), col = new THREE.Color();
-export function buildParked(spots, heightAt, lampMat) {
+let poolTex = null;
+export function buildParked(spots, heightAt, lampMat, poolMat) {
   const V = variants(), out = [];
   for (let vi = 0; vi < V.length; vi++) {
     const list = spots.cars.filter((s) => s[3] === vi);
@@ -99,6 +100,13 @@ export function buildParked(spots, heightAt, lampMat) {
       spots.lamps.forEach(([x, z, h], k) => { tmp.position.set(x, heightAt(x, z), z); tmp.rotation.set(0, h, 0); tmp.updateMatrix(); im.setMatrixAt(k, tmp.matrix); });
       im.castShadow = true; im.computeBoundingSphere(); out.push(im);
     }
+    // a soft pool of lamplight on the ground (visible at night)
+    if (!poolTex) { const c = document.createElement("canvas"); c.width = c.height = 64; const g = c.getContext("2d"); const r = g.createRadialGradient(32, 32, 0, 32, 32, 32); r.addColorStop(0, "rgba(255,255,255,1)"); r.addColorStop(0.5, "rgba(255,255,255,.35)"); r.addColorStop(1, "rgba(255,255,255,0)"); g.fillStyle = r; g.fillRect(0, 0, 64, 64); poolTex = new THREE.CanvasTexture(c); }
+    poolMat.map = poolTex;
+    const pg = new THREE.PlaneGeometry(13, 13).rotateX(-Math.PI / 2).translate(0, 0.2, 1);
+    const pm = new THREE.InstancedMesh(pg, poolMat, spots.lamps.length);
+    spots.lamps.forEach(([x, z, h], k) => { tmp.position.set(x, heightAt(x, z), z); tmp.rotation.set(0, h, 0); tmp.updateMatrix(); pm.setMatrixAt(k, tmp.matrix); });
+    pm.computeBoundingSphere(); out.push(pm);
   }
   return out;
 }

@@ -13,6 +13,7 @@ const M = {
   yellow: new THREE.MeshStandardMaterial({ color: 0xd9a514, roughness: 0.6 }),
   green: new THREE.MeshStandardMaterial({ color: 0x2f4a36, roughness: 0.7 }),
   lamp: new THREE.MeshStandardMaterial({ color: 0xddd6c8, emissive: 0xffc27a, emissiveIntensity: 0, roughness: 0.4 }),
+  pool: new THREE.MeshBasicMaterial({ color: 0xffb877, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, polygonOffset: true, polygonOffsetFactor: -8 }),
 };
 export const objectMats = M;
 const box = (w, h, d, x = 0, y = 0, z = 0) => new THREE.BoxGeometry(w, h, d).translate(x, y + h / 2, z);

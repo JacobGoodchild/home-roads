@@ -153,7 +153,7 @@ export class Stage {
     this.sun.intensity = 3.0 * day * (1 - oc * 0.75);
     this.sun.visible = day > 0.02;
     this.hemi.color.copy(lerpC(0x1a2340, 0xbfd0ea, day)); this.hemi.groundColor.copy(lerpC(0x0a0a0e, 0x4a4632, day));
-    this.hemi.intensity = (0.25 + 0.95 * day + oc * 0.35 * day) * 0.55; // the sky reflection map adds the rest
+    this.hemi.intensity = (0.5 + 0.7 * day + oc * 0.35 * day) * 0.55; // the sky reflection map adds the rest
     this.scene.fog.color.copy(u.hor.value).lerp(u.mid.value, 0.25);
     this.scene.fog.density = 0.0007 + oc * 0.00035 + (rain ? 0.0009 : 0) + this.night * 0.0002;
     this.renderer.toneMappingExposure = 0.95 + this.night * 0.4;
