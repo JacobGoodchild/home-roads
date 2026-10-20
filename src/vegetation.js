@@ -51,7 +51,7 @@ function leafTexture() {
 // crown made of leaf cards scattered through an ellipsoid; normals point out from the centre so it shades like a canopy
 function cardCrown(seed) {
   const pos = [], nor = [], uv = [], idx = [];
-  const N = 46;
+  const N = 32;
   for (let k = 0; k < N; k++) {
     const u = hash(seed * 131 + k * 7 + 1), v = hash(seed * 131 + k * 7 + 2), w = hash(seed * 131 + k * 7 + 3);
     const th = u * Math.PI * 2, ph = Math.acos(2 * v - 1), rr = 0.45 + 0.55 * Math.cbrt(w);

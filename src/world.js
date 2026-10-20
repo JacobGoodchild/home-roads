@@ -89,7 +89,7 @@ export class World {
     ground.receiveShadow = lod <= 1; g.add(ground);
     if (lod <= 2) for (const m of buildRoads(c, h, this.mats)) { if (lod > 0) m.castShadow = false; g.add(m); }
     if (lod <= 2) for (const m of buildBuildings(c, this.mats, lod)) { if (lod > 0) m.castShadow = false; g.add(m); }
-    for (const m of buildTrees(c, h, lod <= 1, [1, 1, 0.7, 0.4][lod])) { if (lod > 0) m.castShadow = false; g.add(m); }
+    for (const m of buildTrees(c, h, lod === 0, [1, 1, 0.7, 0.4][lod])) { if (lod > 0) m.castShadow = false; g.add(m); }
     if (lod <= 1) for (const m of buildObjects(c, h, (x, z) => this.map.roadAt(x, z, {}))) { if (lod > 0) m.castShadow = false; g.add(m); }
     this.root.add(g);
     this.live.set(k, { lod, group: g, ci: c.ci, cj: c.cj });
