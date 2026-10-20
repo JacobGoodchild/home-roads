@@ -7,6 +7,7 @@ import { roadMaterial, paveMaterial, stoneMaterial, buildRoads, buildRail, build
 import { buildingMaterials, buildBuildings } from "./buildings.js";
 import { buildTrees } from "./vegetation.js";
 import { buildObjects, buildPower, objectMats } from "./objects.js";
+import { buildParked } from "./parked.js";
 
 export class World {
   constructor(stage, map, radius) {
@@ -37,7 +38,23 @@ export class World {
   // lod 0 = full detail, 1 = medium, 2 = far ring
   lodFor(d) { return Math.min(3, d); }
 
+  // parked cars and lamp posts: one instanced layer for everything within ~170 m, rebuilt as the car moves
+  updateParked(x, z) {
+    if (this.pk && Math.hypot(x - this.pk.x, z - this.pk.z) < 35 && this.pk.n === this.live.size) return;
+    if (this.pk) for (const m of this.pk.meshes) { m.removeFromParent(); m.dispose(); }
+    const spots = { cars: [], lamps: [] }, R = 170;
+    for (const c of this.live.values()) {
+      const d = this.map.loaded(c.ci, c.cj); if (!d || !d.parked) continue;
+      for (const s of d.parked.cars) if (Math.hypot(s[0] - x, s[1] - z) < R) spots.cars.push(s);
+      for (const s of d.parked.lamps) if (Math.hypot(s[0] - x, s[1] - z) < R * 1.6) spots.lamps.push(s);
+    }
+    const meshes = buildParked(spots, (a, b) => this.map.heightAt(a, b), objectMats.lamp);
+    for (const m of meshes) this.root.add(m);
+    this.pk = { x, z, n: this.live.size, meshes };
+  }
+
   update(x, z, budget = 2) {
+    this.updateParked(x, z);
     const [ci, cj] = this.map.chunkIndex(x, z), R = this.radius;
     const key = ci + "," + cj;
     if (key !== this.centre) {

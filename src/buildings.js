@@ -183,7 +183,7 @@ function styleFor(b, seed, area) {
   if (["industrial", "warehouse", "farm_auxiliary", "barn", "hangar", "service", "container", "greenhouse", "static_caravan"].includes(t)) return 5;
   if (["garage", "garages", "shed", "carport", "roof"].includes(t) || area < 20) return 2;
   // Hampshire village mix (styled default): white render, red brick, cream render, some timber frame and flint
-  return seed < 0.45 ? 0 : seed < 0.83 ? 2 : seed < 0.94 ? 1 : 4;
+  return seed < 0.48 ? 0 : seed < 0.86 ? 2 : 1;
 }
 
 export function buildBuildings(chunk, mats, lod = 0) {

@@ -1,3 +1,4 @@
+import { parkingSpots } from "./parked.js";
 // The baked map: meta.json (spawns, minimap roads, railway, water), a coarse height grid for the whole box,
 // and 250 m chunks (2 m heights + land classes, plus roads, buildings, trees...) loaded around the car.
 // Everything comes from files in data/ (made by scripts/bake.py); nothing is fetched from the internet.
@@ -68,6 +69,12 @@ export class MapData {
       cx /= p.length / 2; cz /= p.length / 2;
       let r = 0; for (let i = 0; i < p.length; i += 2) r = Math.max(r, Math.hypot(p[i] - cx, p[i + 1] - cz));
       c.solids.push({ poly: p, cx, cz, r });
+    }
+    // parked cars are solid too
+    c.parked = parkingSpots(c, this.meta.spawns);
+    for (const [x, z, h] of c.parked.cars) {
+      const fx = Math.sin(h), fz = Math.cos(h), rx = Math.cos(h), rz = -Math.sin(h), L = 2.15, W = 0.9;
+      c.solids.push({ poly: [x + fx * L + rx * W, z + fz * L + rz * W, x + fx * L - rx * W, z + fz * L - rz * W, x - fx * L - rx * W, z - fz * L - rz * W, x - fx * L + rx * W, z - fz * L + rz * W], cx: x, cz: z, r: 2.4 });
     }
     c.walls = [];
     for (const w of [...(f.walls || []), ...(f.hedges || [])]) {

@@ -651,6 +651,11 @@ cls_out = cls_arr.copy()
 cls_out[road_arr == 1] |= 0x80      # under a road: the game lowers the ground a touch so the road sits on top
 cls_out[road_arr == 2] = CLS['rail']
 var_arr = np.array(vimg)
+# paved forecourts: town land right in front of buildings that stand close to the road (pavement up to the shopfront)
+bd2 = ndimage.distance_transform_edt(~bm2) * G
+fore = (bd2 < 5) & (road_dist < 9) & np.isin(cls_arr, [CLS['resi'], CLS['paved'], CLS['meadow'], CLS['grass']]) & ~rm
+cls_out[fore] = (cls_out[fore] & 0x80) | CLS['yard']
+log(int(fore.sum()), 'forecourt cells paved')
 Hq = np.clip(np.round(H2 * 20), 0, 65535).astype('<u2')
 for cj in range(CJ):
   for ci in range(CI):
