@@ -13,5 +13,5 @@ await p.evaluate(([hgt, ox, oz, ex, ez]) => {
   cam.position.set(tx + ex, ty + hgt, tz + ez); cam.up.set(0, 1, 0); cam.fov = 50; cam.updateProjectionMatrix(); cam.lookAt(tx, ty, tz);
 }, [+hgt, +ox, +oz, +ex, +ez]);
 await p.waitForTimeout(2500);
-await p.screenshot({ path: `screenshots/dev-top-${start}.png` });
+await p.screenshot({ path: `screenshots/dev-top-${start}.png`, timeout: 240000 });
 await b.close();

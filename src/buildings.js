@@ -111,10 +111,10 @@ export function buildingMaterials() {
   const roof = new THREE.MeshStandardMaterial({ roughness: 0.85, side: THREE.DoubleSide });
   roof.onBeforeCompile = (sh) => {
     sh.uniforms.tTile = { value: tex.tile }; sh.uniforms.tSlate = { value: tex.slate };
-    sh.vertexShader = "attribute vec3 ra; varying vec3 vRa; varying vec3 vRw; varying float vRny;\n" + sh.vertexShader.replace("#include <worldpos_vertex>", "#include <worldpos_vertex>\n vRa = ra; vRny = abs(normal.y); vRw = (modelMatrix * vec4(transformed, 1.0)).xyz;");
-    sh.fragmentShader = "uniform sampler2D tTile, tSlate; varying vec3 vRa; varying vec3 vRw; varying float vRny;\n" + sh.fragmentShader.replace("#include <color_fragment>", `#include <color_fragment>
+    sh.vertexShader = "attribute vec4 ra; varying vec4 vRa; varying vec3 vRw; varying float vRny;\n" + sh.vertexShader.replace("#include <worldpos_vertex>", "#include <worldpos_vertex>\n vRa = ra; vRny = abs(normal.y); vRw = (modelMatrix * vec4(transformed, 1.0)).xyz;");
+    sh.fragmentShader = "uniform sampler2D tTile, tSlate; varying vec4 vRa; varying vec3 vRw; varying float vRny;\n" + sh.fragmentShader.replace("#include <color_fragment>", `#include <color_fragment>
       // ra.x = covering (0 clay tile, 1 slate, 2 flat/metal), ra.y = along-ridge coordinate (m), ra.z = tint
-      vec2 tuv = vec2(vRa.y, vRw.y * 1.5) / 2.2;
+      vec2 tuv = vec2(vRa.y, vRa.w) / 2.2;  // along the ridge, across it (plan coordinates)
       vec3 c;
       if (vRa.x < 0.5) c = texture2D(tTile, tuv).rgb * vec3(1.35, 1.12, 1.0) * vRa.z;
       else if (vRa.x < 1.5) c = texture2D(tSlate, tuv).rgb * 0.95 * vRa.z;
@@ -239,8 +239,8 @@ export function buildBuildings(chunk, mats, lod = 0) {
       const lines = (a, b, extra) => { const v = new Set(); const n2 = Math.max(2, Math.ceil((b - a + 2 * o) / 0.75)); for (let i = 0; i <= n2; i++) v.add(+(a - o + ((b - a + 2 * o) * i) / n2).toFixed(3)); for (const e of extra) if (e > a - o && e < b + o) v.add(+e.toFixed(3)); return [...v].sort((p, q) => p - q); };
       const S = lines(M.sa, M.sb, [M.rc, M.sc - (M.hs - M.ht), M.sc + (M.hs - M.ht)]), T = lines(M.ta, M.tb, [M.rc, M.tc - (M.ht - M.hs), M.tc + (M.ht - M.hs)]);
       const alongS = M.type.endsWith("_s");
-      const V = (s, t) => [s * ux - t * uz, b.y + M.fn(s, t), s * uz + t * ux, alongS ? s : t];
-      const tri = (A, B, C) => { for (const v of [A, B, C]) { R.pos.push(v[0], v[1], v[2]); R.ra.push(covering, v[3], tint); } };
+      const V = (s, t) => [s * ux - t * uz, b.y + M.fn(s, t), s * uz + t * ux, alongS ? s : t, alongS ? t : s];
+      const tri = (A, B, C) => { for (const v of [A, B, C]) { R.pos.push(v[0], v[1], v[2]); R.ra.push(covering, v[3], tint, v[4]); } };
       for (let j = 0; j + 1 < T.length; j++) for (let i = 0; i + 1 < S.length; i++) {
         const ms = (S[i] + S[i + 1]) / 2, mt = (T[j] + T[j + 1]) / 2, mx = ms * ux - mt * uz, mz = ms * uz + mt * ux;
         if (!inPoly(pts, mx, mz) && distPoly(pts, mx, mz) > o + 0.05) continue;
@@ -251,8 +251,8 @@ export function buildBuildings(chunk, mats, lod = 0) {
     } else if (grid) {
       const { ux, uz, s0, t0, ns, nt, st, at } = grid;
       const alongS = ns >= nt; // tiles run along the longer side
-      const P = (i, j) => { const s = s0 + i * st, t = t0 + j * st; return [s * ux - t * uz, b.y + at(i, j), s * uz + t * ux, alongS ? s : t]; };
-      const tri = (A, B, C) => { for (const v of [A, B, C]) { R.pos.push(v[0], v[1], v[2]); R.ra.push(covering, v[3], tint); } };
+      const P = (i, j) => { const s = s0 + i * st, t = t0 + j * st; return [s * ux - t * uz, b.y + at(i, j), s * uz + t * ux, alongS ? s : t, alongS ? t : s]; };
+      const tri = (A, B, C) => { for (const v of [A, B, C]) { R.pos.push(v[0], v[1], v[2]); R.ra.push(covering, v[3], tint, v[4]); } };
       for (let j = 0; j < nt - 1; j++) for (let i = 0; i < ns - 1; i++) {
         const a0 = at(i, j), a1 = at(i + 1, j), a2 = at(i, j + 1), a3 = at(i + 1, j + 1), cnt = !!a0 + !!a1 + !!a2 + !!a3;
         if (cnt < 3) continue;
@@ -281,7 +281,7 @@ export function buildBuildings(chunk, mats, lod = 0) {
     if (!grid) {
       const contour = pts.map((q) => new THREE.Vector2(q[0], q[1]));
       let tris = []; try { tris = THREE.ShapeUtils.triangulateShape(contour, []); } catch (_) { /* skip */ }
-      for (const t of tris) for (const k of [t[0], t[2], t[1]]) { R.pos.push(pts[k][0], b.y + flatH, pts[k][1]); R.ra.push(2, pts[k][0], 1); }
+      for (const t of tris) for (const k of [t[0], t[2], t[1]]) { R.pos.push(pts[k][0], b.y + flatH, pts[k][1]); R.ra.push(2, pts[k][0], 1, pts[k][1]); }
     }
     // the real shop name on the fascia
     if (isShop && front >= 0 && lod <= 1) {
@@ -304,7 +304,7 @@ export function buildBuildings(chunk, mats, lod = 0) {
   }
   if (R.pos.length) {
     const g = new THREE.BufferGeometry();
-    g.setAttribute("position", new THREE.Float32BufferAttribute(R.pos, 3)); g.setAttribute("ra", new THREE.Float32BufferAttribute(R.ra, 3));
+    g.setAttribute("position", new THREE.Float32BufferAttribute(R.pos, 3)); g.setAttribute("ra", new THREE.Float32BufferAttribute(R.ra, 4));
     g.computeVertexNormals(); g.computeBoundingSphere();
     const m = new THREE.Mesh(g, mats.roof); m.castShadow = m.receiveShadow = true; out.push(m);
   }

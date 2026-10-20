@@ -444,8 +444,9 @@ def roof_grid(k, ring, base):
           if w.sum() < 8: break
         if k < 0.15 or k > 2.5: continue
       err = float(np.median(np.abs(Hi - pred))) + 0.25 * float(np.mean(np.abs(Hi - pred) > 1.0))
+      if name == 'flat' and np.percentile(Hi, 90) - np.percentile(Hi, 10) > 1.4: continue   # the scan isn't flat
       if best is None or err < best[0] - (0.08 if name == 'flat' else 0): best = (err, name, float(a), float(k), rcv)
-    if best and best[0] < 0.6:
+    if best and best[0] < 1.3:
       model = [best[1], round(best[2], 2), round(best[3], 3), round(float(sa), 2), round(float(sb), 2), round(float(ta), 2), round(float(tb), 2), round(best[0], 2), round(float(best[4]), 2) if best[4] is not None else 0]
   ERRS.append(best[0] if best else 9)
   return {'f': [round(ux, 5), round(uz, 5), s0, t0, ns, nt, st, q], 'v': base64.b64encode(out.tobytes()).decode(), 'ch': chim, 'm': model}, float(np.percentile(vm[inside], 95)), float(np.percentile(vm[inside], 15))
