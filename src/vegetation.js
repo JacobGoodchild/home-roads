@@ -54,7 +54,7 @@ function cardCrown(seed, N = 32) {
   for (let k = 0; k < N; k++) {
     const u = hash(seed * 131 + k * 7 + 1), v = hash(seed * 131 + k * 7 + 2), w = hash(seed * 131 + k * 7 + 3);
     const th = u * Math.PI * 2, ph = Math.acos(2 * v - 1), rr = 0.45 + 0.55 * Math.cbrt(w);
-    const cx = Math.sin(ph) * Math.cos(th) * rr * 1.05, cy = 0.62 + Math.cos(ph) * rr * 0.36, cz = Math.sin(ph) * Math.sin(th) * rr * 1.05;
+    const cx = Math.sin(ph) * Math.cos(th) * rr * 1.05, cy = 0.68 + Math.cos(ph) * rr * 0.29, cz = Math.sin(ph) * Math.sin(th) * rr * 1.05;
     const sz = 0.55 + hash(seed + k * 13) * 0.35;
     const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(hash(k * 5 + seed) * 6.28, hash(k * 9 + seed) * 6.28, hash(k * 11 + seed) * 6.28));
     const ax = new THREE.Vector3(1, 0, 0).applyQuaternion(q).multiplyScalar(sz * 0.5), ay = new THREE.Vector3(0, 1, 0).applyQuaternion(q).multiplyScalar(sz * 0.5 * 0.42 / 0.36);
@@ -101,7 +101,7 @@ function getShared() {
   const bark = new THREE.MeshStandardMaterial({ map: photo("bark", { repeat: [2, 2] }), roughness: 1 });
   const cards = new THREE.MeshStandardMaterial({ map: leafTexture(), alphaTest: 0.45, side: THREE.DoubleSide, roughness: 0.85 });
   shared = {
-    leaf, bark, cards, cardCrowns: [cardCrown(1), cardCrown(2), cardCrown(3)], cardCrownsLo: [cardCrown(4, 12), cardCrown(5, 12), cardCrown(6, 12)], coreLo: (() => { const g = new THREE.IcosahedronGeometry(0.75, 0); g.scale(1.1, 0.42, 1.1); g.translate(0, 0.62, 0); return g; })(), core: (() => { const g = new THREE.IcosahedronGeometry(0.7, 1); g.scale(1.1, 0.42, 1.1); g.translate(0, 0.62, 0); return g; })(),
+    leaf, bark, cards, cardCrowns: [cardCrown(1), cardCrown(2), cardCrown(3)], cardCrownsLo: [cardCrown(4, 12), cardCrown(5, 12), cardCrown(6, 12)], coreLo: (() => { const g = new THREE.IcosahedronGeometry(0.7, 0); g.scale(1.05, 0.38, 1.05); g.translate(0, 0.68, 0); return g; })(), core: (() => { const g = new THREE.IcosahedronGeometry(0.62, 1); g.scale(1.05, 0.36, 1.05); g.translate(0, 0.68, 0); return g; })(),
     crown: [crownGeo(true, 1.3, false), crownGeo(true, 4.1, false)], crownLo: crownGeo(false, 2, false),
     conifer: crownGeo(true, 0, true), coniferLo: crownGeo(false, 0, true),
     trunk: trunkWithBranches(),
@@ -137,7 +137,7 @@ export function buildTrees(chunk, heightAt, near, density = 1, mid = false) {
         const cr = Math.min(r * 0.95, h * 0.7);
         tmp.scale.set(cr, h, cr); tmp.updateMatrix();
         col.setHex(LEAF[(s * 97 * LEAF.length | 0) % LEAF.length]).multiplyScalar(0.9 + hash(i) * 0.2);
-        for (const m of meshes) { m.setMatrixAt(k, tmp.matrix); m.setColorAt(k, m.material === S.cards ? col.clone().multiplyScalar(1.6) : col.clone().multiplyScalar(0.55)); }
+        for (const m of meshes) { m.setMatrixAt(k, tmp.matrix); m.setColorAt(k, m.material === S.cards ? col.clone().multiplyScalar(1.6) : col.clone().multiplyScalar(0.3)); }
       });
       for (const m of meshes) { m.castShadow = true; m.receiveShadow = true; m.computeBoundingSphere(); out.push(m); }
     });
@@ -145,7 +145,7 @@ export function buildTrees(chunk, heightAt, near, density = 1, mid = false) {
       const trunks = new THREE.InstancedMesh(S.trunk, S.bark, pick.length);
       pick.forEach((i, k) => {
         const x = t[i * 4], z = t[i * 4 + 1], h = Math.max(3, t[i * 4 + 2]);
-        tmp.position.set(x, heightAt(x, z) - 0.2, z); tmp.rotation.set(0, 0, 0); tmp.scale.set(h * 0.9, h, h * 0.9); tmp.updateMatrix(); trunks.setMatrixAt(k, tmp.matrix);
+        tmp.position.set(x, heightAt(x, z) - 0.2, z); tmp.rotation.set(0, 0, 0); tmp.scale.set(h * 0.6, h, h * 0.6); tmp.updateMatrix(); trunks.setMatrixAt(k, tmp.matrix);
       });
       trunks.computeBoundingSphere();
       out.push(trunks);
