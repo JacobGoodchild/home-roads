@@ -1,8 +1,8 @@
 # Home Roads
 
 Drive a hypercar around the real roads of Overton and Whitchurch in Hampshire, and the B3400 between them.
-Roads, buildings, the River Test, the railway and fields come from OpenStreetMap; the ground, building heights and every
-tree come from Environment Agency LIDAR. Runs in the browser, phone or laptop, with no network use while playing.
+Roads, buildings, shop names, the River Test, the railway and fields come from OpenStreetMap; the ground, building heights,
+roof shapes, chimneys and every tree come from Environment Agency LIDAR. You start on Winchester Street, Overton, outside Domino's. Runs in the browser, phone or laptop, with no network use while playing.
 
 Play: https://jacobgoodchild.github.io/home-roads/
 

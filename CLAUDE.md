@@ -148,3 +148,42 @@ Styled defaults (data has nothing):
 - Parked cars and lamp posts along town roads with pavements (placed deterministically, clear of junctions).
 - Tree species (all drawn as broadleaf, green), field crop patterns (drill rows/tramlines per field).
 - Sizes of mapped objects (standard UK sizes), road widths where OSM has no width tag (typical UK widths by class).
+- 12:40 Night (warm lit windows, lamp light pools, a bit of moonlight), road gutters and patches, paving-slab forecourts,
+  more clean fitted roofs (only ~490 complex buildings keep the raw scanned roof), leafy crowns for mid-distance trees,
+  tree crowns raised so trunks show. Full test suite passes (8 tests, incl. the robot drive Overton → Whitchurch).
+
+### Session summary (2026-10-20, 09:47–13:00 UK time)
+Live game: https://jacobgoodchild.github.io/home-roads/ (best on a laptop/desktop in Chrome; Graphics > Fast for phones).
+
+Done:
+- Real map baked here (no workaround workflow needed): OpenStreetMap (roads, names, buildings, shops, water, railway,
+  land use, street objects) and Environment Agency 1 m LIDAR (ground shape, building heights, roof shapes, chimneys,
+  every tree). 250 m chunks streamed around the car with simpler distant versions.
+- You start on Winchester Street, Overton, outside Domino's. Menu also starts you in Whitchurch, on the B3400 or on the
+  highest named road, and has the Overton → Whitchurch sprint (timer, checkpoints, best time saved).
+- Driving: Apex Ring hypercars and engine sounds; free-roaming physics on the LIDAR ground; less grip on grass/fields;
+  buildings, walls, hedges and parked cars are solid; reset button; minimap from the real roads; road name on screen.
+  Fixed the "thrown into the sky" bug (LIDAR kerb steps were treated as ramps) and walls now slide instead of bounce.
+- Looks: full-sharpness rendering, shadows, ambient occlusion (best setting), sky reflections, haze, real sun position,
+  real weather (rain/cloud) by default, night lighting. Buildings with sash windows, doors, shopfronts with real names,
+  render/brick walls, clay/slate roofs fitted to the LIDAR, chimneys; leafy trees at their real positions; parked cars,
+  lamp posts, garden walls with railings; post boxes, signs, poles and power lines where OSM maps them.
+
+Not done / limits (and why):
+- It is not Street View-photoreal. That would need photogrammetry (e.g. Google's photorealistic 3D tiles, which need an
+  API key and may not be stored for offline play) or real facade photos (not openly licensed). Facades, wall finishes,
+  roof coverings, parked cars and lamp posts are styled defaults; see "What is real data and what is a styled default".
+- ~490 complex buildings still have lumpy scanned roofs; ~316 buildings have no LIDAR heights and are plain boxes.
+- Phone performance on the Best setting is untested on a real Pixel 7 (only headless software rendering here), so the
+  frame rate is unverified; phones may need Graphics > Balanced or Fast. Touch pads are basic.
+- No traffic or pedestrians. Night has no real light sources except the car's headlights.
+
+Best ideas for next time:
+1. Real colours from above: Environment Agency vertical aerial photography (OGL, 25 cm, but project-based and in ECW
+   files that need GDAL) or the EA's newer RGB composite; drape it on the ground and use it to colour each roof and
+   decide render vs brick per building. Biggest single realism win that stays "real data".
+2. Split complex footprints into rectangles and fit a roof to each part, so every building gets a clean roof.
+3. Test on the real Pixel 7 and laptop; tune the quality presets and touch controls from that.
+4. Simple AI traffic on the real road graph, and pedestrians on pavements in the centres.
+5. Better facades per street from Jacob's own photos (which buildings are brick, white render, timber frame), stored as a
+   small per-building style table: real knowledge without needing an open dataset.

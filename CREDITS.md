@@ -23,11 +23,14 @@ The baked files in `data/` are a derived database of OpenStreetMap data and are 
 | asphalt, grass, drygrass, gravel, concrete (+ normal maps) | Poly Haven (via Apex Ring) | CC0 |
 | soil (farm_soil), forest (forest_leaves_04), brick (red_brick_03), rooftile (clay_roof_tiles_02), slate (roof_slates_02), paving (concrete_pavement), bark (bark_brown_02), render (painted_plaster_wall) | Poly Haven, https://polyhaven.com, fetched by `scripts/fetch_textures.py` | CC0 |
 
-Facade windows, doors and shopfronts are drawn on a canvas at runtime over the CC0 brick/render photos (`src/buildings.js`).
+Facade windows, doors and shopfronts are drawn procedurally in a shader over the CC0 brick/render photos (`src/buildings.js`); leaf clusters, railings and shop signs are drawn on canvases at runtime. Parked cars are generic shapes from Apex Ring's car body generator.
 
 ## Sound
 All sound is synthesised in Web Audio (`src/audio.js`, from Apex Ring). No sound files.
 
-## Weather (optional)
-If you pick "Live weather" in the menu, the game asks Open-Meteo (https://open-meteo.com, CC BY 4.0) once for the current
-weather in Overton. Nothing is requested while driving.
+## Weather
+By default ("Real weather now" in the menu) the game asks Open-Meteo (https://open-meteo.com, CC BY 4.0) once, while
+loading, for the current rain and cloud cover in Overton. Nothing is requested while driving; pick Dry or Rain to skip it.
+
+## Post-processing
+Ambient occlusion uses Three.js's GTAOPass (MIT, vendored).
