@@ -34,7 +34,7 @@ export class World {
   }
 
   // lod 0 = full detail, 1 = medium, 2 = far ring
-  lodFor(d) { return d <= 1 ? 0 : d === 2 ? 1 : 2; }
+  lodFor(d) { return Math.min(3, d); }
 
   update(x, z, budget = 2) {
     const [ci, cj] = this.map.chunkIndex(x, z), R = this.radius;
@@ -66,13 +66,13 @@ export class World {
     const k = this.map.key(c.ci, c.cj), old = this.live.get(k);
     if (old) this.disposeChunk(old);
     const g = new THREE.Group(), h = (x, z) => this.map.heightAt(x, z);
-    const step = lod === 0 ? 1 : lod === 1 ? 2 : 5;
+    const step = [1, 2, 4, 8][lod];
     const ground = new THREE.Mesh(chunkGeometry(c, this.map.n, this.map.g, step), this.mats.ground);
-    ground.receiveShadow = true; g.add(ground);
-    for (const m of buildRoads(c, h, this.mats)) { if (lod === 2) m.castShadow = false; g.add(m); }
-    if (lod <= 1 || (c.f.bld || []).length) for (const m of buildBuildings(c, this.mats)) { if (lod > 0) m.castShadow = false; g.add(m); }
-    for (const m of buildTrees(c, h, lod === 0, lod === 1 ? 1 : 0.5)) g.add(m);
-    if (lod <= 1) for (const m of buildLamps(c, h, this.mats)) g.add(m);
+    ground.receiveShadow = lod <= 1; g.add(ground);
+    if (lod <= 2) for (const m of buildRoads(c, h, this.mats)) { if (lod > 0) m.castShadow = false; g.add(m); }
+    if (lod <= 2) for (const m of buildBuildings(c, this.mats)) { if (lod > 0) m.castShadow = false; g.add(m); }
+    for (const m of buildTrees(c, h, lod === 0, [1, 1, 0.6, 0.3][lod])) { if (lod > 0) m.castShadow = false; g.add(m); }
+    if (lod <= 1) for (const m of buildLamps(c, h, this.mats)) { if (lod > 0) m.castShadow = false; g.add(m); }
     this.root.add(g);
     this.live.set(k, { lod, group: g, ci: c.ci, cj: c.cj });
     this.setMask(c.ci, c.cj, 255);

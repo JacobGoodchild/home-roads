@@ -4,16 +4,16 @@
 import * as THREE from "three";
 import { TEST, FORCE_QUALITY } from "./env.js";
 
+// high = the screen's full sharpness (default everywhere); adaptive resolution only steps down a little if frames get slow
 export const QUALITY = {
-  low: { pr: 1, shadows: false, shadowSize: 1024, radius: 2, aa: false },
-  medium: { pr: 1.5, shadows: true, shadowSize: 1024, radius: 3, aa: true },
-  high: { pr: 2, shadows: true, shadowSize: 2048, radius: 3, aa: true },
+  low: { pr: 1, shadows: false, shadowSize: 1024, radius: 2, aa: false, floor: 0.6 },
+  medium: { pr: 1.75, shadows: true, shadowSize: 1024, radius: 3, aa: true, floor: 0.7 },
+  high: { pr: 3, shadows: true, shadowSize: 2048, radius: 3, aa: true, floor: 0.8 },
 };
 export function autoQuality() {
   if (FORCE_QUALITY && QUALITY[FORCE_QUALITY]) return FORCE_QUALITY;
   if (TEST) return "low";
-  const touch = matchMedia("(pointer: coarse)").matches;
-  return touch ? "medium" : "high";
+  return "high";
 }
 
 const LAT = 51.24, LON = -1.30;
@@ -52,8 +52,8 @@ export class Stage {
     this.q = QUALITY[qname]; this.qname = qname;
     const r = (this.renderer = new THREE.WebGLRenderer({ antialias: this.q.aa, powerPreference: "high-performance", preserveDrawingBuffer: TEST }));
     r.outputColorSpace = THREE.SRGBColorSpace; r.toneMapping = THREE.ACESFilmicToneMapping; r.toneMappingExposure = 1.0;
-    r.shadowMap.enabled = this.q.shadows; r.shadowMap.type = THREE.PCFSoftShadowMap;
-    this.maxPR = TEST ? 0.5 : Math.min(window.devicePixelRatio || 1, this.q.pr); this.prScale = 1;
+    r.shadowMap.enabled = this.q.shadows; r.shadowMap.type = THREE.PCFShadowMap;
+    this.maxPR = TEST ? 1 : Math.min(window.devicePixelRatio || 1, this.q.pr); this.prScale = 1;
     r.setPixelRatio(this.maxPR);
     container.appendChild(r.domElement);
     this.scene = new THREE.Scene();
@@ -82,6 +82,12 @@ export class Stage {
     });
     this.sky = new THREE.Mesh(new THREE.SphereGeometry(3000, 32, 16), this.skyMat); this.sky.renderOrder = -1; this.sky.frustumCulled = false;
     this.scene.add(this.sky);
+    this.pmrem = new THREE.PMREMGenerator(r);
+    this.envScene = new THREE.Scene();
+    this.envScene.add(new THREE.Mesh(new THREE.SphereGeometry(50, 32, 16), this.skyMat));
+    const grd = new THREE.Mesh(new THREE.CircleGeometry(45, 24).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x3d4630 }));
+    grd.position.y = -2; this.envScene.add(grd); this.envGround = grd;
+    this.scene.environmentIntensity = 0.7;
     this.hemi = new THREE.HemisphereLight(0xb8c8e0, 0x3a3a2a, 0.7); this.scene.add(this.hemi);
     this.sun = new THREE.DirectionalLight(0xffffff, 2); this.sun.castShadow = this.q.shadows;
     const sc = this.sun.shadow.camera; sc.left = -60; sc.right = 60; sc.top = 60; sc.bottom = -60; sc.near = 1; sc.far = 400;
@@ -104,7 +110,8 @@ export class Stage {
     this.ft = this.ft == null ? frameMs : this.ft * 0.95 + frameMs * 0.05;
     this.adaptT = (this.adaptT || 0) + frameMs; if (this.adaptT < 2000) return; this.adaptT = 0;
     let k = this.prScale;
-    if (this.ft > 21 && k > 0.55) k = Math.max(0.55, k - 0.1); else if (this.ft < 15 && k < 1) k = Math.min(1, k + 0.05);
+    const fl = this.q.floor;
+    if (this.ft > 22 && k > fl) k = Math.max(fl, k - 0.05); else if (this.ft < 15 && k < 1) k = Math.min(1, k + 0.05);
     if (k !== this.prScale) { this.prScale = k; this.resize(); }
   }
 
@@ -130,11 +137,18 @@ export class Stage {
     this.sun.intensity = 3.0 * day * (1 - oc * 0.75);
     this.sun.visible = day > 0.02;
     this.hemi.color.copy(lerpC(0x1a2340, 0xbfd0ea, day)); this.hemi.groundColor.copy(lerpC(0x0a0a0e, 0x4a4632, day));
-    this.hemi.intensity = 0.25 + 0.95 * day + oc * 0.35 * day;
+    this.hemi.intensity = (0.25 + 0.95 * day + oc * 0.35 * day) * 0.55; // the sky reflection map adds the rest
     this.scene.fog.color.copy(u.hor.value).lerp(u.mid.value, 0.25);
-    this.scene.fog.density = 0.00055 + oc * 0.00035 + (rain ? 0.0009 : 0) + this.night * 0.0002;
+    this.scene.fog.density = 0.0007 + oc * 0.00035 + (rain ? 0.0009 : 0) + this.night * 0.0002;
     this.renderer.toneMappingExposure = 0.95 + this.night * 0.4;
     this.wet = rain ? 1 : 0;
+    // rebuild the reflection map from this sky (cheap enough every few minutes)
+    if (!this.envT || Math.abs(this.envAlt - alt) > 0.02 || this.envCloud !== oc) {
+      this.envT = 1; this.envAlt = alt; this.envCloud = oc;
+      this.envGround.material.color.copy(lerpC(0x0c0e0c, 0x4b5238, day));
+      const old = this.envRT; this.envRT = this.pmrem.fromScene(this.envScene, 0, 0.1, 200);
+      this.scene.environment = this.envRT.texture; if (old) old.dispose();
+    }
   }
 
   // keep the shadow camera around the car

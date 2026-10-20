@@ -25,7 +25,7 @@ const setLoad = (f, msg) => { loadBar.style.width = Math.round(f * 100) + "%"; i
 const CAR_CHOICES = ["vanta", "pico", "solace", "brute"].map((id) => CARS.find((c) => c.id === id) || CARS[0]);
 const TIMES = [["real", "Now (UK)"], ["7.5", "Morning"], ["13", "Midday"], ["17.6", "Sunset"], ["22", "Night"]];
 const WX = [["dry", "Dry"], ["rain", "Rain"], ["live", "Live weather"]];
-const QS = [["auto", "Auto"], ["low", "Low"], ["medium", "Medium"], ["high", "High"]];
+const QS = [["auto", "Best (auto)"], ["high", "Sharp"], ["medium", "Balanced"], ["low", "Fast (older phones)"]];
 
 async function boot() {
   const map = (G.map = await new MapData().load());
@@ -108,7 +108,7 @@ function setupMenu() {
   $("sprintBtn").onclick = () => startDrive("sprint");
   seg($("timeSeg"), TIMES, () => save.time, (v) => { save.time = v; writeSave(); applyEnv(); });
   seg($("wxSeg"), WX, () => save.weather || "dry", (v) => { save.weather = v; writeSave(); if (v === "live") fetchLiveWeather(); else applyEnv(); });
-  seg($("qSeg"), QS, () => save.quality, (v) => { save.quality = v; writeSave(); toast("Graphics change applies next time you open the game.", 2500); });
+  seg($("qSeg"), QS, () => save.quality, (v) => { save.quality = v; writeSave(); location.reload(); });
   seg($("carSeg"), CAR_CHOICES.map((c) => [c.id, c.name]), () => (CAR_CHOICES.find((c) => c.id === save.car) || CAR_CHOICES[0]).id, (v) => { save.car = v; writeSave(); makePlayerCar(); placeAt({ x: G.car.x, z: G.car.z, h: G.car.h }); });
   $("menuBtn").onclick = () => showMenu();
   $("camBtn").onclick = () => { G.cam.mode = G.cam.mode === "chase" ? "bonnet" : "chase"; save.cam = G.cam.mode; writeSave(); };

@@ -15,14 +15,14 @@ function crownGeo(detail, seed, conifer) {
       const g = new THREE.ConeGeometry(1 - k * 0.22, 0.45, detail ? 9 : 6, 1); g.translate(0, 0.35 + k * 0.2, 0); parts.push(g);
     }
   } else {
-    const blobs = detail ? [[0, 0.62, 0, 0.62], [0.36, 0.52, 0.14, 0.46], [-0.3, 0.6, -0.22, 0.5]] : [[0, 0.63, 0, 0.7]];
+    const blobs = detail ? [[0.2, 0.66, 0.1, 0.58], [-0.28, 0.64, -0.15, 0.52]] : [[0, 0.63, 0, 0.7]];
     blobs.forEach(([x, y, z, r], i) => {
       const g = new THREE.IcosahedronGeometry(r, detail ? 1 : 0);
       const p = g.attributes.position;
       for (let v = 0; v < p.count; v++) {
         const px = p.getX(v), py = p.getY(v), pz = p.getZ(v);
         const n = 1 + 0.16 * Math.sin(px * 9 + seed + i) * Math.sin(py * 8 + i * 2) * Math.sin(pz * 10 + seed);
-        p.setXYZ(v, px * n * 1.25, py * n * 0.9, pz * n * 1.25);
+        p.setXYZ(v, px * n * 1.25, py * n * (detail ? 0.75 : 0.85), pz * n * 1.25);
       }
       g.translate(x * 1.1, y, z * 1.1); parts.push(g);
     });
@@ -94,7 +94,7 @@ export function buildTrees(chunk, heightAt, near, density = 1) {
         col.setHex(con ? CONIFER[(s * 31 * CONIFER.length | 0) % CONIFER.length] : LEAF[(s * 97 * LEAF.length | 0) % LEAF.length]).multiplyScalar(0.85 + hash(i) * 0.3);
         crown.setColorAt(k, col);
       });
-      crown.castShadow = near; crown.receiveShadow = true;
+      crown.castShadow = true; crown.receiveShadow = true;
       crown.computeBoundingSphere();
       out.push(crown);
     });

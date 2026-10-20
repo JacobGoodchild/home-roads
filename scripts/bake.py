@@ -396,14 +396,17 @@ ND2[bm2] = 0
 ND2[cls_arr == CLS['water']] = np.minimum(ND2[cls_arr == CLS['water']], 0)
 mx3 = ndimage.maximum_filter(ND2, size=3)
 cnt = ndimage.uniform_filter((ND2 > 1.5).astype(np.float32), size=3) * 9
-peaks = (ND2 == mx3) & (ND2 >= 3.0) & (cnt >= 4)
+rmd2 = ndimage.binary_dilation(rm, iterations=1)
+rmd2 = ndimage.binary_dilation(rm, iterations=1)
+peaks = (ND2 == mx3) & (ND2 >= 3.0) & (cnt >= 4) & (~rmd2) & (~rmd2)
 jj, ii = np.nonzero(peaks)
+road_dist = ndimage.distance_transform_edt(~rm) * G   # metres to the nearest road
 log(len(jj), 'trees')
 for j, i in zip(jj, ii):
   h = float(ND2[j, i]); E = E0 + i * G; N = N1 - j * G
   # crown radius from how far the canopy stays above half the height
   win = ND2[max(0, j - 3):j + 4, max(0, i - 3):i + 4]
-  r = max(1.5, min(9, math.sqrt((win > h * 0.55).sum() * 4 / math.pi)))
+  r = max(1.5, min(9, math.sqrt((win > h * 0.55).sum() * 4 / math.pi), road_dist[j, i] + 1.5))
   x, z = loc(E + random.uniform(-0.7, 0.7), N + random.uniform(-0.7, 0.7))
   C(chunk_of(E, N))['trees'] += [x, z, round(h, 1), round(r, 1)]
 bushes = (ND2 == mx3) & (ND2 >= 1.0) & (ND2 < 3.0) & (cnt >= 3) & (~rm) & (cls_arr != CLS['paved'])

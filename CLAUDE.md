@@ -101,3 +101,11 @@ in plain English: what's done, what isn't and why, the link to the live game, an
   London Road (B3400) in Overton. Choice: phone controls are on-screen ◀ ▶ / GAS / BRAKE / HB pads (free roaming needs
   throttle and brake, unlike Apex Ring's auto-accelerate). Choice: live weather is opt-in from the menu (one request to
   open-meteo.com before you drive, never while playing), because the rules say no network while playing.
+- 10:30 Rendering: full screen sharpness by default (device pixel ratio up to 3, antialiasing on; adaptive resolution only
+  drops to 80% if frames get slow), graphics setting Best/Sharp/Balanced/Fast, reflections from the sky on the car paint
+  and wet roads, a bit more distance haze. LOD rings reworked (2 m ground only where the car is), ~330k triangles.
+  Fixed the car being launched when the ground data under it switched from coarse to detailed. Trees whose trunk would
+  stand on a road removed; crowns next to roads limited to the distance to the road.
+- 10:30 Brief update from Jacob: REAL data only. Roof shapes from LIDAR, objects only where OSM maps them, OSM tags
+  where they exist, neutral defaults elsewhere. Removing the invented details (windows atlas, made-up lamp posts,
+  random tree colours/species).

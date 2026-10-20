@@ -34,8 +34,10 @@ test("spawns on a real road in Overton, drives and steers", async ({ page }) => 
 for (const [start, name] of [["Whitchurch", "whitchurch"], ["B3400", "b3400"], ["Hilltop", "hill"]]) {
   test(`spawns at ${start} on a road`, async ({ page }) => {
     const errors = await open(page, start);
-    const a = await page.evaluate(() => window.__hr.car);
+    const a = await page.evaluate(() => window.__hr.sim(1, {}));
     expect(a.surface).toBe("road");
+    // sitting on the ground, not floating or buried
+    expect(Math.abs(await page.evaluate(() => window.__hr.G.car.y - window.__hr.G.car.groundAt(window.__hr.G.car.x, window.__hr.G.car.z)))).toBeLessThan(0.3);
     for (const [w, h] of [[412, 915], [915, 412]]) {
       await page.setViewportSize({ width: w, height: h });
       await page.waitForTimeout(800);

@@ -22,7 +22,7 @@ export class Car {
     this.vx = 0; this.vz = 0; this.vF = 0; this.vL = 0; this.vy = 0;
     this.yawRate = 0; this.steer = 0; this.latAcc = 0; this.lonAcc = 0; this.pitch = 0; this.roll = 0;
     this.drifting = false; this.driftAngle = 0; this.wallHit = 0; this.surface = "road"; this.roadName = "";
-    this.y = this.groundAt(x, z);
+    this.y = this.groundAt(x, z); this.gPrev = null; this.air = false;
   }
 
   groundAt(x, z) {
@@ -135,7 +135,9 @@ export class Car {
     this.vy -= 9.8 * dt; this.y += this.vy * dt;
     if (this.y <= g) {
       const land = -this.vy;
-      this.vy = Math.max(0, (g - (this.gPrev ?? g)) / dt) * 0.85;
+      // keep the ground's upward speed so the car can leave crests; ignore jumps from data swaps or steps
+      const gv = (g - (this.gPrev ?? g)) / dt;
+      this.vy = this.speed > 12 && gv < 8 ? Math.max(0, gv) * 0.85 : 0;
       this.y = g; this.air = false;
       if (land > 6) this.landed = land;
     } else if (this.y > g + 0.25) this.air = true;

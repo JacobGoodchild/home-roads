@@ -71,14 +71,16 @@ export function groundMaterial() {
 
 // One chunk's ground mesh at grid step s (1 = 2 m, 2 = 4 m, 4 = 8 m), with skirts so LOD seams don't show gaps.
 export function chunkGeometry(c, n, g, s) {
-  const m = Math.floor((n - 1) / s) + 1, N = m * m, h = c.h, cls = c.cls, vari = c.vari;
+  // sample every s-th grid point, always including the last row/column so neighbouring chunks meet exactly
+  const at = []; for (let i = 0; i < n - 1; i += s) at.push(i); at.push(n - 1);
+  const m = at.length, N = m * m, h = c.h, cls = c.cls, vari = c.vari;
   const skirt = 4 * (m - 1);
   const pos = new Float32Array((N + skirt * 2) * 3), nor = new Float32Array((N + skirt * 2) * 3);
   const lc = new Float32Array((N + skirt * 2) * 4), lc2 = new Float32Array((N + skirt * 2) * 2);
   const w = [0, 0, 0, 0, 0];
   const H = (i, j) => h[Math.min(n - 1, Math.max(0, j)) * n + Math.min(n - 1, Math.max(0, i))];
   for (let jj = 0; jj < m; jj++) for (let ii = 0; ii < m; ii++) {
-    const i = ii * s, j = jj * s, k = jj * m + ii, o = j * n + i;
+    const i = at[ii], j = at[jj], k = jj * m + ii, o = j * n + i;
     const road = cls[o] & 0x80;
     pos[k * 3] = c.x0 + i * g; pos[k * 3 + 1] = h[o] - (road ? 0.35 : 0); pos[k * 3 + 2] = c.z0 + j * g;
     const dx = H(i + s, j) - H(i - s, j), dz = H(i, j + s) - H(i, j - s), L = Math.hypot(dx, 2 * s * g, dz);
