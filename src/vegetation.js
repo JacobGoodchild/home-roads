@@ -49,9 +49,8 @@ function leafTexture() {
   return t;
 }
 // crown made of leaf cards scattered through an ellipsoid; normals point out from the centre so it shades like a canopy
-function cardCrown(seed) {
+function cardCrown(seed, N = 32) {
   const pos = [], nor = [], uv = [], idx = [];
-  const N = 32;
   for (let k = 0; k < N; k++) {
     const u = hash(seed * 131 + k * 7 + 1), v = hash(seed * 131 + k * 7 + 2), w = hash(seed * 131 + k * 7 + 3);
     const th = u * Math.PI * 2, ph = Math.acos(2 * v - 1), rr = 0.45 + 0.55 * Math.cbrt(w);
@@ -102,7 +101,7 @@ function getShared() {
   const bark = new THREE.MeshStandardMaterial({ map: photo("bark", { repeat: [2, 2] }), roughness: 1 });
   const cards = new THREE.MeshStandardMaterial({ map: leafTexture(), alphaTest: 0.45, side: THREE.DoubleSide, roughness: 0.85 });
   shared = {
-    leaf, bark, cards, cardCrowns: [cardCrown(1), cardCrown(2), cardCrown(3)], core: (() => { const g = new THREE.IcosahedronGeometry(0.7, 1); g.scale(1.1, 0.42, 1.1); g.translate(0, 0.62, 0); return g; })(),
+    leaf, bark, cards, cardCrowns: [cardCrown(1), cardCrown(2), cardCrown(3)], cardCrownsLo: [cardCrown(4, 12), cardCrown(5, 12), cardCrown(6, 12)], coreLo: (() => { const g = new THREE.IcosahedronGeometry(0.75, 0); g.scale(1.1, 0.42, 1.1); g.translate(0, 0.62, 0); return g; })(), core: (() => { const g = new THREE.IcosahedronGeometry(0.7, 1); g.scale(1.1, 0.42, 1.1); g.translate(0, 0.62, 0); return g; })(),
     crown: [crownGeo(true, 1.3, false), crownGeo(true, 4.1, false)], crownLo: crownGeo(false, 2, false),
     conifer: crownGeo(true, 0, true), coniferLo: crownGeo(false, 0, true),
     trunk: trunkWithBranches(),
@@ -116,7 +115,7 @@ const LEAF = [0x5f7d3a, 0x6c8a40, 0x587538, 0x739245, 0x648238, 0x6a8a3c, 0x7d8f
 const CONIFER = [0x24382a, 0x2c4130, 0x30442a];
 const tmp = new THREE.Object3D(), col = new THREE.Color();
 
-export function buildTrees(chunk, heightAt, near, density = 1) {
+export function buildTrees(chunk, heightAt, near, density = 1, mid = false) {
   const S = getShared();
   const t = chunk.f.trees || [], n = t.length / 4;
   const pick = [];
@@ -125,11 +124,12 @@ export function buildTrees(chunk, heightAt, near, density = 1) {
   if (pick.length) {
     const seedOf = (i) => hash((Math.round(t[i * 4] * 10) * 73856093) ^ (Math.round(t[i * 4 + 1] * 10) * 19349663));
     // species aren't in the data: every tree is drawn as a broadleaf (styled default), at its LIDAR position, height and width
-    const groups = near ? [[], [], []] : [[]];
-    for (const i of pick) groups[near ? Math.floor(seedOf(i) * 3) : 0].push(i);
+    const cards = near || mid;
+    const groups = cards ? [[], [], []] : [[]];
+    for (const i of pick) groups[cards ? Math.floor(seedOf(i) * 3) : 0].push(i);
     groups.forEach((g, gi) => {
       if (!g.length) return;
-      const meshes = near ? [new THREE.InstancedMesh(S.core, S.leaf, g.length), new THREE.InstancedMesh(S.cardCrowns[gi], S.cards, g.length)] : [new THREE.InstancedMesh(S.crownLo, S.leaf, g.length)];
+      const meshes = near ? [new THREE.InstancedMesh(S.core, S.leaf, g.length), new THREE.InstancedMesh(S.cardCrowns[gi], S.cards, g.length)] : mid ? [new THREE.InstancedMesh(S.coreLo, S.leaf, g.length), new THREE.InstancedMesh(S.cardCrownsLo[gi], S.cards, g.length)] : [new THREE.InstancedMesh(S.crownLo, S.leaf, g.length)];
       g.forEach((i, k) => {
         const x = t[i * 4], z = t[i * 4 + 1], h = Math.max(3, t[i * 4 + 2]), r = Math.max(1.2, t[i * 4 + 3]), s = seedOf(i);
         const y = heightAt(x, z);
