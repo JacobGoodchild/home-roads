@@ -21,8 +21,14 @@ export function roadMaterial() {
         float wear = smoothstep(0.35, 0.0, abs(abs(vRd.x) - vRd.z * 0.25)) * 0.12;   // darker tyre tracks
         a *= 1.0 - wear;
         if (vRd.w > 2.5) a = texture2D(tG, wp * 0.3).rgb * vec3(0.95, 0.9, 0.8);
-        float edge = smoothstep(vRd.z * 0.5 - 0.25, vRd.z * 0.5, abs(vRd.x));
-        a = mix(a, a * vec3(0.9, 0.92, 0.85) + 0.03, edge * 0.6);
+        // darker, dirtier gutter by the kerb; repair patches; slightly polished wheel paths
+        float gut = smoothstep(vRd.z * 0.5 - 0.45, vRd.z * 0.5 - 0.05, abs(vRd.x));
+        a = mix(a, a * vec3(0.72, 0.7, 0.66), gut * 0.7);
+        vec2 pc = floor(vec2(vRd.y / 4.0, (vRd.x + 10.0) / 1.6));
+        float ph = fract(sin(dot(pc, vec2(12.9898, 78.233))) * 43758.5453);
+        vec2 pf = fract(vec2(vRd.y / 4.0, (vRd.x + 10.0) / 1.6));
+        float patchM = step(0.93, ph) * step(0.08, pf.x) * step(pf.x, 0.92) * step(0.1, pf.y) * step(pf.y, 0.9);
+        a = mix(a, a * 0.78 + vec3(0.01), patchM);
         float m = 0.0;
         if (vRd.w > 0.5 && vRd.w < 2.5) {
           float dash = step(fract(vRd.y / 9.0), 0.34);

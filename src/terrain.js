@@ -25,7 +25,7 @@ function weights(c, out) {
 
 export function groundMaterial() {
   const mat = new THREE.MeshStandardMaterial({ roughness: 0.95, metalness: 0 });
-  const tGrass = photo("grass", { repeat: [1, 1] }), tDry = photo("drygrass"), tSoil = photo("soil"), tLeaf = photo("forest"), tPave = photo("concrete");
+  const tGrass = photo("grass", { repeat: [1, 1] }), tDry = photo("drygrass"), tSoil = photo("soil"), tLeaf = photo("forest"), tPave = photo("paving");
   mat.userData.uniforms = { wet: { value: 0 }, farMask: { value: null }, isFar: { value: 0 }, maskBox: { value: new THREE.Vector4() } };
   mat.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, mat.userData.uniforms, { tGrass: { value: tGrass }, tDry: { value: tDry }, tSoil: { value: tSoil }, tLeaf: { value: tLeaf }, tPave: { value: tPave } });
@@ -57,7 +57,7 @@ export function groundMaterial() {
         else field = grass * vec3(0.95, 1.0, 0.85) * (0.92 + 0.1 * rows);                                  // grass ley
         field = mix(field, soil * 0.7, tram * 0.8);
         vec3 leaf = texture2D(tLeaf, wp * 0.2).rgb * mix(0.75, 1.05, macro);
-        vec3 pave = texture2D(tPave, wp * 0.15).rgb * 0.85;
+        vec3 pave = texture2D(tPave, wp * 0.66).rgb * 0.9;
         vec3 garden = mix(grass * 1.06, pave, smoothstep(0.55, 0.75, vnoise(wp * 0.09)) * 0.35);
         vec4 w = vLc; float tot = max(0.001, w.x + w.y + w.z + w.w);
         vec3 col = (mix(grass, garden, vLc2.x) * w.x + field * w.y + leaf * w.z + pave * w.w) / tot;
